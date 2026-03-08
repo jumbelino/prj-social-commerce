@@ -1,0 +1,61 @@
+{
+  "realm": "social-commerce",
+  "enabled": true,
+  "displayName": "Social Commerce Dev",
+  "roles": {
+    "realm": [
+      {
+        "name": "admin",
+        "description": "Development admin role"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "social-commerce-frontend",
+      "name": "Social Commerce Frontend",
+      "description": "Public client for local NextAuth callback",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://192.168.0.234:3000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000",
+        "http://192.168.0.234:3000"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "dev-admin",
+      "enabled": true,
+      "firstName": "Dev",
+      "lastName": "Admin",
+      "email": "dev-admin@local.test",
+      "emailVerified": true,
+      "requiredActions": [],
+      "clientRoles": {
+        "realm-management": [
+          "realm-admin"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "dev-admin",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "admin"
+      ]
+    }
+  ]
+}
