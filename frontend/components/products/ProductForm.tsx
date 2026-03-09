@@ -15,14 +15,16 @@ type VariantFormData = {
   sku: string;
   priceCents: string;
   stock: string;
-  attributesJson: string;
+  size: string;
+  color: string;
 };
 
 const EMPTY_VARIANT: VariantFormData = {
   sku: "",
   priceCents: "",
   stock: "",
-  attributesJson: "{}",
+  size: "",
+  color: "",
 };
 
 type FormErrors = Record<string, string>;
@@ -33,13 +35,17 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false }: Pro
   const [active, setActive] = useState(initialData?.active ?? true);
   const [variants, setVariants] = useState<VariantFormData[]>(
     initialData?.variants && initialData.variants.length > 0
-      ? initialData.variants.map((v) => ({
-          id: v.id,
-          sku: v.sku,
-          priceCents: String(v.price_cents),
-          stock: String(v.stock),
-          attributesJson: JSON.stringify(v.attributes_json || {}),
-        }))
+      ? initialData.variants.map((v) => {
+          const attrs = v.attributes_json || {};
+          return {
+            id: v.id,
+            sku: v.sku,
+            priceCents: String(v.price_cents),
+            stock: String(v.stock),
+            size: typeof attrs.size === "string" ? attrs.size : "",
+            color: typeof attrs.color === "string" ? attrs.color : "",
+          };
+        })
       : [{ ...EMPTY_VARIANT }]
   );
   const [errors, setErrors] = useState<FormErrors>({});
@@ -66,13 +72,6 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false }: Pro
       if (isNaN(stock) || stock < 0) {
         newErrors[`variants.${i}.stock`] = "Estoque deve ser um número não negativo";
       }
-      if (variant.attributesJson.trim()) {
-        try {
-          JSON.parse(variant.attributesJson);
-        } catch {
-          newErrors[`variants.${i}.attributesJson`] = "JSON inválido";
-        }
-      }
     }
 
     setErrors(newErrors);
@@ -85,12 +84,18 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false }: Pro
       return;
     }
 
-    const processedVariants = variants.map((v) => ({
-      sku: v.sku.trim(),
-      price_cents: Number(v.priceCents),
-      stock: Number(v.stock),
-      attributes_json: v.attributesJson.trim() ? JSON.parse(v.attributesJson) : {},
-    }));
+    const processedVariants = variants.map((v) => {
+      const attributesJson: Record<string, string> = {};
+      if (v.size.trim()) attributesJson.size = v.size.trim();
+      if (v.color.trim()) attributesJson.color = v.color.trim();
+
+      return {
+        sku: v.sku.trim(),
+        price_cents: Number(v.priceCents),
+        stock: Number(v.stock),
+        attributes_json: attributesJson,
+      };
+    });
 
     if (isEditMode) {
       const updateData: Partial<Product> = {};
@@ -99,8 +104,8 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false }: Pro
       else if (description === "") updateData.description = null;
       updateData.active = active;
       if (processedVariants.length > 0) {
-        updateData.variants = processedVariants.map((v) => ({
-          id: variants.find((vv) => vv.sku === v.sku)?.id,
+        updateData.variants = processedVariants.map((v, idx) => ({
+          id: variants[idx]?.id,
           ...v,
         })) as ProductVariant[];
       }
@@ -129,6 +134,16 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false }: Pro
         delete newErrors[`variants.${index}.${field}`];
         return newErrors;
       });
+    }
+  };
+
+  const addVariant = () => {
+    setVariants((prev) => [...prev, { ...EMPTY_VARIANT }]);
+  };
+
+  const removeVariant = (index: number) => {
+    if (variants.length > 1) {
+      setVariants((prev) => prev.filter((_, i) => i !== index));
     }
   };
 
@@ -201,11 +216,32 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false }: Pro
       </div>
 
       <div className="border-t border-[var(--color-line)] pt-4">
-        <h3 className="mb-3 font-display text-lg font-semibold text-slate-900">Variações</h3>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="font-display text-lg font-semibold text-slate-900">Variações</h3>
+          <button
+            type="button"
+            onClick={addVariant}
+            className="text-sm text-[var(--color-accent)] hover:underline"
+          >
+            + Adicionar variação
+          </button>
+        </div>
         
         {variants.map((variant, index) => (
           <div key={index} className="mb-4 rounded-lg border border-[var(--color-line)] bg-slate-50 p-4">
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-500">Variação {index + 1}</span>
+              {variants.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeVariant(index)}
+                  className="text-xs text-red-500 hover:text-red-700"
+                >
+                  Remover
+                </button>
+              )}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <div>
                 <label
                   htmlFor={`variants.${index}.sku`}
@@ -273,22 +309,36 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false }: Pro
 
               <div>
                 <label
-                  htmlFor={`variants.${index}.attributesJson`}
+                  htmlFor={`variants.${index}.size`}
                   className="block text-sm font-semibold text-slate-700"
                 >
-                  Atributos (JSON)
+                  Tamanho
                 </label>
                 <input
-                  id={`variants.${index}.attributesJson`}
+                  id={`variants.${index}.size`}
                   type="text"
-                  value={variant.attributesJson}
-                  onChange={(e) => updateVariant(index, "attributesJson", e.target.value)}
-                  placeholder='{"size": "M", "color": "white"}'
+                  value={variant.size}
+                  onChange={(e) => updateVariant(index, "size", e.target.value)}
+                  placeholder="Ex: M, G, GG"
                   className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
                 />
-                {errors[`variants.${index}.attributesJson`] && (
-                  <p className="mt-1 text-xs text-red-500">{errors[`variants.${index}.attributesJson`]}</p>
-                )}
+              </div>
+
+              <div>
+                <label
+                  htmlFor={`variants.${index}.color`}
+                  className="block text-sm font-semibold text-slate-700"
+                >
+                  Cor
+                </label>
+                <input
+                  id={`variants.${index}.color`}
+                  type="text"
+                  value={variant.color}
+                  onChange={(e) => updateVariant(index, "color", e.target.value)}
+                  placeholder="Ex: Branco, Preto, Azul"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+                />
               </div>
             </div>
           </div>

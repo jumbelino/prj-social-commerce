@@ -209,12 +209,17 @@ export function ProductImagesManager({
     }
 
     try {
-      await fetch(
+      const response = await fetch(
         `/api/admin/products/${productId}/images/${removingImageId}`,
         {
           method: "DELETE",
         }
       );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || "Failed to delete image");
+      }
 
       const remainingImages = images
         .filter((img) => img.id !== removingImageId)
@@ -223,7 +228,7 @@ export function ProductImagesManager({
       onImagesChange(remainingImages);
     } catch (error) {
       console.error("Delete failed:", error);
-      alert("Erro ao remover imagem");
+      alert(error instanceof Error ? error.message : "Erro ao remover imagem");
     } finally {
       setShowRemoveConfirm(false);
       setRemovingImageId(null);

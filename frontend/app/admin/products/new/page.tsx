@@ -42,8 +42,8 @@ export default function NewProductPage() {
     setError(null);
 
     try {
-      await createProductAsAdmin(payload);
-      router.push("/admin/products");
+      const createdProduct = await createProductAsAdmin(payload);
+      router.push(`/admin/products/${createdProduct.id}`);
     } catch (err) {
       setError(messageFromError(err));
     } finally {
@@ -66,10 +66,6 @@ export default function NewProductPage() {
       <section className="rounded-lg border border-[var(--color-line)] bg-[var(--color-card)] p-6">
         <ProductForm onSubmit={handleSubmit} isSubmitting={isSubmitting} />
       </section>
-
-      <p className="text-sm text-[var(--color-muted)]">
-        Após criar o produto, você poderá adicionar imagens na página de edição.
-      </p>
     </div>
   );
 }
