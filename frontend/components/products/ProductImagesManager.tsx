@@ -104,6 +104,7 @@ export function ProductImagesManager({
   const [isUploading, setIsUploading] = useState(false);
   const [removingImageId, setRemovingImageId] = useState<number | null>(null);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -208,6 +209,8 @@ export function ProductImagesManager({
       return;
     }
 
+    setIsDeleting(true);
+
     try {
       const response = await fetch(
         `/api/admin/products/${productId}/images/${removingImageId}`,
@@ -230,6 +233,7 @@ export function ProductImagesManager({
       console.error("Delete failed:", error);
       alert(error instanceof Error ? error.message : "Erro ao remover imagem");
     } finally {
+      setIsDeleting(false);
       setShowRemoveConfirm(false);
       setRemovingImageId(null);
     }
@@ -347,7 +351,7 @@ export function ProductImagesManager({
         cancelLabel="Cancelar"
         onConfirm={handleConfirmRemove}
         onCancel={handleCancelRemove}
-        isLoading={removingImageId !== null}
+        isLoading={isDeleting}
       />
     </div>
   );
