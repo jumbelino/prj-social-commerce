@@ -21,7 +21,6 @@ import { CSS } from "@dnd-kit/utilities";
 
 import ConfirmModal from "@/components/admin/ConfirmModal";
 import type { ProductImage } from "@/lib/api";
-import { API_BASE_URL } from "@/lib/api";
 
 export interface ProductImagesManagerProps {
   productId: string;
@@ -136,7 +135,7 @@ export function ProductImagesManager({
       onImagesChange(newImages);
 
       try {
-        await fetch(`${API_BASE_URL}/admin/products/${productId}/images/reorder`, {
+        await fetch(`/api/admin/products/${productId}/images/reorder`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
@@ -172,7 +171,7 @@ export function ProductImagesManager({
       formData.append("file", file);
 
       const response = await fetch(
-        `${API_BASE_URL}/admin/products/${productId}/images/upload`,
+        `/api/admin/products/${productId}/images/upload`,
         {
           method: "POST",
           body: formData,
@@ -211,7 +210,7 @@ export function ProductImagesManager({
 
     try {
       await fetch(
-        `${API_BASE_URL}/admin/products/${productId}/images/${removingImageId}`,
+        `/api/admin/products/${productId}/images/${removingImageId}`,
         {
           method: "DELETE",
         }

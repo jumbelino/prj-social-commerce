@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 
 import { useCart } from "@/components/cart-provider";
@@ -80,7 +81,38 @@ export default function Home() {
                 key={product.id}
                 className="group rounded-2xl border border-[var(--color-line)] bg-[var(--color-card)] p-5 shadow-[0_10px_26px_rgba(18,30,40,0.07)] transition hover:-translate-y-1 hover:shadow-[0_14px_32px_rgba(18,30,40,0.1)]"
               >
-                <h2 className="font-display text-2xl text-slate-900">{product.title}</h2>
+                <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-slate-100">
+                  {product.images[0]?.url ? (
+                    <Link href={`/products/${product.id}`}>
+                      <Image
+                        src={product.images[0].url}
+                        alt={product.title}
+                        fill
+                        className="object-cover"
+                      />
+                    </Link>
+                  ) : (
+                    <Link href={`/products/${product.id}`} className="flex h-full w-full items-center justify-center text-slate-400">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="h-12 w-12"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+                        />
+                      </svg>
+                    </Link>
+                  )}
+                </div>
+                <Link href={`/products/${product.id}`}>
+                  <h2 className="font-display text-2xl text-slate-900 mt-4">{product.title}</h2>
+                </Link>
                 <p className="mt-2 line-clamp-3 text-sm text-[var(--color-muted)]">
                   {product.description ?? "No description available."}
                 </p>

@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useCart } from "@/components/cart-provider";
 import { ErrorPanel } from "@/components/error-panel";
+import { ProductImageCarousel } from "@/components/products/ProductImageCarousel";
 import { ApiRequestError, getProductById, type Product } from "@/lib/api";
 import { formatCents } from "@/lib/currency";
 
@@ -79,8 +80,14 @@ export default function ProductDetailPage() {
       ) : null}
 
       {product ? (
-        <section className="space-y-4 rounded-2xl border border-[var(--color-line)] bg-[var(--color-card)] p-6 shadow-[0_10px_26px_rgba(18,30,40,0.07)]">
-          <p className="text-base text-slate-700">{product.description ?? "No description available."}</p>
+        <section className="grid gap-6 lg:grid-cols-2 lg:items-start">
+          <div>
+            <ProductImageCarousel images={product.images} />
+          </div>
+
+          <div className="space-y-4 rounded-2xl border border-[var(--color-line)] bg-[var(--color-card)] p-6 shadow-[0_10px_26px_rgba(18,30,40,0.07)]">
+            <h2 className="font-display text-2xl leading-tight text-slate-900">{product.title}</h2>
+            <p className="text-base text-slate-700">{product.description ?? "No description available."}</p>
 
           {hasVariants ? (
             <div className="space-y-3">
@@ -115,6 +122,7 @@ export default function ProductDetailPage() {
           ) : (
             <p className="text-sm text-[var(--color-muted)]">This product has no variants available.</p>
           )}
+          </div>
         </section>
       ) : null}
     </div>

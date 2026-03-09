@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { useRouter, useParams } from "next/navigation";
 
 import { ErrorPanel } from "@/components/error-panel";
-import { ApiRequestError, getProductById, type Product } from "@/lib/api";
+import { ProductImagesManager } from "@/components/products/ProductImagesManager";
+import { ApiRequestError, getProductById, type Product, type ProductImage } from "@/lib/api";
 
 export default function EditProductPage() {
   const router = useRouter();
@@ -216,27 +216,13 @@ export default function EditProductPage() {
       </form>
 
       <section className="bg-[var(--color-card)] rounded-lg border border-[var(--color-line)] p-6">
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Imagens</h2>
-        
-        {product.images && product.images.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-            {product.images.map((image) => (
-              <div
-                key={image.id}
-                className="relative aspect-square rounded-lg overflow-hidden border border-[var(--color-line)] bg-slate-100"
-              >
-                <Image
-                  src={image.url}
-                  alt={`Product image ${image.position + 1}`}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-[var(--color-muted)]">Este produto nao tem imagens.</p>
-        )}
+        <ProductImagesManager
+          productId={product.id}
+          images={product.images}
+          onImagesChange={(newImages: ProductImage[]) => {
+            setProduct((prev) => (prev ? { ...prev, images: newImages } : null));
+          }}
+        />
       </section>
 
       <section className="bg-[var(--color-card)] rounded-lg border border-[var(--color-line)] p-6">
