@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+:root {
+  --color-bg: #f6f1e8;
+  --color-bg-soft: #fff9ef;
+  --color-card: #ffffff;
+  --color-text: #1a2938;
+  --color-muted: #5b6774;
+  --color-line: rgba(26, 41, 56, 0.14);
+  --color-accent: #c6482f;
+  --color-accent-ink: #ffffff;
+  --color-danger-bg: #fff1ef;
+  --color-danger-text: #8d2417;
+}
+
+@theme inline {
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-text);
+  --font-sans: "Trebuchet MS", Verdana, sans-serif;
+}
+
+body {
+  background:
+    radial-gradient(circle at 12% 18%, rgba(250, 199, 126, 0.35), transparent 34%),
+    radial-gradient(circle at 88% 10%, rgba(73, 122, 147, 0.2), transparent 29%),
+    linear-gradient(180deg, var(--color-bg-soft) 0%, var(--color-bg) 62%, #f2ece1 100%);
+  color: var(--color-text);
+  font-family: "Trebuchet MS", Verdana, sans-serif;
+}
+
+.font-display {
+  font-family: "Garamond", "Times New Roman", serif;
+}

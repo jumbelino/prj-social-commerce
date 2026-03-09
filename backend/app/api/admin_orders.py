@@ -13,7 +13,8 @@ from ..db.session import get_db_session
 from ..integrations.melhor_envio import read_shipping_origin_postal_code
 from ..models.order import Order, OrderItem
 from ..models.product import ProductVariant
-from ..schemas.orders import OrderCreate, OrderRead
+from ..schemas.enums import OrderStatus
+from ..schemas.orders import OrderCreate, OrderRead, OrderStatusUpdate
 
 admin_orders_router = APIRouter(prefix="/admin/orders", tags=["admin-orders"])
 
@@ -150,7 +151,7 @@ def get_admin_order(
 @admin_orders_router.patch("/{order_id}", response_model=OrderRead)
 def update_admin_order(
     order_id: UUID,
-    payload: dict[str, str],
+    payload: OrderStatusUpdate,
     db: Annotated[Session, Depends(get_db_session)],
     principal: Annotated[Principal, Depends(require_admin)],
 ) -> Order:
@@ -159,23 +160,29 @@ def update_admin_order(
     if order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="order not found")
 
-    new_status = payload.get("status")
-    if not new_status:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="status is required")
+    new_status = payload.status
+    current_status = OrderStatus(order.status) if order.status in [s.value for s in OrderStatus] else None
 
-    allowed_statuses = {"pending", "paid", "shipped", "delivered", "cancelled"}
-    if new_status not in allowed_statuses:
+    if current_status is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"invalid status. Allowed: {', '.join(allowed_statuses)}",
+            detail=f"invalid current status: {order.status}",
         )
 
-    if order.status == "cancelled" and new_status != "cancelled":
+    allowed_from_current = OrderStatus.valid_transitions().get(current_status, [])
+    if not allowed_from_current:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="cannot change status of cancelled order",
+            detail=f"cannot change status of order in '{current_status.value}' state",
         )
 
-    order.status = new_status
+    if new_status not in allowed_from_current:
+        allowed_str = ", ".join(s.value for s in allowed_from_current)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"invalid transition from '{current_status.value}' to '{new_status.value}'. Allowed: {allowed_str}",
+        )
+
+    order.status = new_status.value
     db.commit()
     return order

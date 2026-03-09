@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.schemas.enums import OrderStatus
+
 
 class OrderItemCreate(BaseModel):
     variant_id: UUID
@@ -73,3 +75,18 @@ class OrderRead(BaseModel):
     total_cents: int
     created_at: datetime
     items: list[OrderItemRead]
+
+
+class OrderStatusUpdate(BaseModel):
+    status: OrderStatus
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def validate_status(cls, value: str | OrderStatus) -> OrderStatus:
+        if isinstance(value, str):
+            try:
+                return OrderStatus(value)
+            except ValueError:
+                valid = [s.value for s in OrderStatus]
+                raise ValueError(f"invalid status. Allowed: {', '.join(valid)}")
+        return value

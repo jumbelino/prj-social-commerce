@@ -3,6 +3,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, FastAPI
 
 from .api import (
+    admin_customers_router,
+    admin_dashboard_router,
     admin_product_images_router,
     admin_orders_router,
     orders_router,
@@ -28,6 +30,8 @@ app.include_router(payments_router)
 app.include_router(webhooks_router)
 app.include_router(admin_product_images_router)
 app.include_router(admin_orders_router)
+app.include_router(admin_customers_router)
+app.include_router(admin_dashboard_router)
 
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
 

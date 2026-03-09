@@ -12,6 +12,13 @@ class ProductVariantCreate(BaseModel):
     stock: int = Field(default=0)
 
 
+class ProductVariantUpdate(BaseModel):
+    sku: str | None = None
+    price_cents: int | None = Field(default=None, ge=0)
+    attributes_json: dict[str, object] | None = None
+    stock: int | None = None
+
+
 class ProductImageCreate(BaseModel):
     object_key: str = Field(min_length=1, max_length=255)
     url: str = Field(min_length=1, max_length=500)
@@ -24,6 +31,13 @@ class ProductCreate(BaseModel):
     active: bool = True
     variants: list[ProductVariantCreate] = Field(default_factory=list)
     images: list[ProductImageCreate] = Field(default_factory=list)
+
+
+class ProductUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    active: bool | None = None
+    variants: list[ProductVariantUpdate] | None = None
 
 
 class ProductVariantRead(BaseModel):
