@@ -10,6 +10,10 @@ class ProductVariantCreate(BaseModel):
     price_cents: int = Field(ge=0)
     attributes_json: dict[str, object] = Field(default_factory=dict)
     stock: int = Field(default=0)
+    weight_kg: float | None = Field(default=None, ge=0)
+    width_cm: int | None = Field(default=None, ge=0)
+    height_cm: int | None = Field(default=None, ge=0)
+    length_cm: int | None = Field(default=None, ge=0)
 
 
 class ProductVariantUpdate(BaseModel):
@@ -17,6 +21,10 @@ class ProductVariantUpdate(BaseModel):
     price_cents: int | None = Field(default=None, ge=0)
     attributes_json: dict[str, object] | None = None
     stock: int | None = None
+    weight_kg: float | None = Field(default=None, ge=0)
+    width_cm: int | None = Field(default=None, ge=0)
+    height_cm: int | None = Field(default=None, ge=0)
+    length_cm: int | None = Field(default=None, ge=0)
 
 
 class ProductImageCreate(BaseModel):
@@ -49,6 +57,10 @@ class ProductVariantRead(BaseModel):
     price_cents: int
     attributes_json: dict[str, object]
     stock: int
+    weight_kg: float | None
+    width_cm: int | None
+    height_cm: int | None
+    length_cm: int | None
 
 
 class ProductImageRead(BaseModel):

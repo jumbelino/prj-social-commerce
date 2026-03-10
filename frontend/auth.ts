@@ -85,7 +85,7 @@ const keycloakProvider = {
   authorization: {
     url: `${publicIssuer}/protocol/openid-connect/auth`,
     params: {
-      scope: "openid email profile",
+      scope: "openid email profile offline_access",
     },
   },
   token: {

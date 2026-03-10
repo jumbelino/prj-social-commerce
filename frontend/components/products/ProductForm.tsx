@@ -2,12 +2,15 @@
 
 import { useState, useCallback } from "react";
 
-import type { Product, ProductVariant, ProductCreatePayload, ProductImageCreatePayload } from "@/lib/api";
+import type { Product, ProductVariant, ProductCreatePayload, ProductImageCreatePayload, ProductVariantCreatePayload } from "@/lib/api";
+import { PendingImageUploader, type PendingImage } from "./PendingImageUploader";
 
 export interface ProductFormProps {
   initialData?: Product;
   onSubmit: (data: ProductCreatePayload | Partial<Product>) => Promise<void>;
   isSubmitting?: boolean;
+  pendingImages?: PendingImage[];
+  onPendingImagesChange?: (images: PendingImage[]) => void;
 }
 
 type VariantFormData = {
@@ -17,6 +20,10 @@ type VariantFormData = {
   stock: string;
   size: string;
   color: string;
+  weightKg: string;
+  widthCm: string;
+  heightCm: string;
+  lengthCm: string;
 };
 
 const EMPTY_VARIANT: VariantFormData = {
@@ -25,11 +32,15 @@ const EMPTY_VARIANT: VariantFormData = {
   stock: "",
   size: "",
   color: "",
+  weightKg: "",
+  widthCm: "",
+  heightCm: "",
+  lengthCm: "",
 };
 
 type FormErrors = Record<string, string>;
 
-export function ProductForm({ initialData, onSubmit, isSubmitting = false }: ProductFormProps) {
+export function ProductForm({ initialData, onSubmit, isSubmitting = false, pendingImages = [], onPendingImagesChange }: ProductFormProps) {
   const [title, setTitle] = useState(initialData?.title ?? "");
   const [description, setDescription] = useState(initialData?.description ?? "");
   const [active, setActive] = useState(initialData?.active ?? true);
@@ -44,6 +55,10 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false }: Pro
             stock: String(v.stock),
             size: typeof attrs.size === "string" ? attrs.size : "",
             color: typeof attrs.color === "string" ? attrs.color : "",
+            weightKg: v.weight_kg !== null && v.weight_kg !== undefined ? String(v.weight_kg) : "",
+            widthCm: v.width_cm !== null && v.width_cm !== undefined ? String(v.width_cm) : "",
+            heightCm: v.height_cm !== null && v.height_cm !== undefined ? String(v.height_cm) : "",
+            lengthCm: v.length_cm !== null && v.length_cm !== undefined ? String(v.length_cm) : "",
           };
         })
       : [{ ...EMPTY_VARIANT }]
@@ -84,17 +99,24 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false }: Pro
       return;
     }
 
-    const processedVariants = variants.map((v) => {
+    const processedVariants: ProductVariantCreatePayload[] = variants.map((v) => {
       const attributesJson: Record<string, string> = {};
       if (v.size.trim()) attributesJson.size = v.size.trim();
       if (v.color.trim()) attributesJson.color = v.color.trim();
 
-      return {
+      const variantData: ProductVariantCreatePayload = {
         sku: v.sku.trim(),
         price_cents: Number(v.priceCents),
         stock: Number(v.stock),
         attributes_json: attributesJson,
       };
+
+      if (v.weightKg.trim()) variantData.weight_kg = Number(v.weightKg);
+      if (v.widthCm.trim()) variantData.width_cm = Number(v.widthCm);
+      if (v.heightCm.trim()) variantData.height_cm = Number(v.heightCm);
+      if (v.lengthCm.trim()) variantData.length_cm = Number(v.lengthCm);
+
+      return variantData;
     });
 
     if (isEditMode) {
@@ -214,6 +236,15 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false }: Pro
           <option value="inactive">Inativo</option>
         </select>
       </div>
+
+      {!isEditMode && onPendingImagesChange && (
+        <div className="border-t border-[var(--color-line)] pt-4">
+          <PendingImageUploader
+            images={pendingImages}
+            onImagesChange={onPendingImagesChange}
+          />
+        </div>
+      )}
 
       <div className="border-t border-[var(--color-line)] pt-4">
         <div className="mb-3 flex items-center justify-between">
@@ -337,6 +368,79 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false }: Pro
                   value={variant.color}
                   onChange={(e) => updateVariant(index, "color", e.target.value)}
                   placeholder="Ex: Branco, Preto, Azul"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor={`variants.${index}.weightKg`}
+                  className="block text-sm font-semibold text-slate-700"
+                >
+                  Peso (kg)
+                </label>
+                <input
+                  id={`variants.${index}.weightKg`}
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  value={variant.weightKg}
+                  onChange={(e) => updateVariant(index, "weightKg", e.target.value)}
+                  placeholder="Ex: 0.5"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor={`variants.${index}.widthCm`}
+                  className="block text-sm font-semibold text-slate-700"
+                >
+                  Largura (cm)
+                </label>
+                <input
+                  id={`variants.${index}.widthCm`}
+                  type="number"
+                  min="0"
+                  value={variant.widthCm}
+                  onChange={(e) => updateVariant(index, "widthCm", e.target.value)}
+                  placeholder="Ex: 20"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor={`variants.${index}.heightCm`}
+                  className="block text-sm font-semibold text-slate-700"
+                >
+                  Altura (cm)
+                </label>
+                <input
+                  id={`variants.${index}.heightCm`}
+                  type="number"
+                  min="0"
+                  value={variant.heightCm}
+                  onChange={(e) => updateVariant(index, "heightCm", e.target.value)}
+                  placeholder="Ex: 30"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor={`variants.${index}.lengthCm`}
+                  className="block text-sm font-semibold text-slate-700"
+                >
+                  Comprimento (cm)
+                </label>
+                <input
+                  id={`variants.${index}.lengthCm`}
+                  type="number"
+                  min="0"
+                  value={variant.lengthCm}
+                  onChange={(e) => updateVariant(index, "lengthCm", e.target.value)}
+                  placeholder="Ex: 40"
                   className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
                 />
               </div>

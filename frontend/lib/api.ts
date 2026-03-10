@@ -28,6 +28,10 @@ export type ProductVariant = {
   price_cents: number;
   attributes_json: Record<string, unknown>;
   stock: number;
+  weight_kg: number | null;
+  width_cm: number | null;
+  height_cm: number | null;
+  length_cm: number | null;
 };
 
 export type ProductImage = {
@@ -53,6 +57,10 @@ export type ProductVariantCreatePayload = {
   price_cents: number;
   attributes_json: Record<string, unknown>;
   stock: number;
+  weight_kg?: number | null;
+  width_cm?: number | null;
+  height_cm?: number | null;
+  length_cm?: number | null;
 };
 
 export type ProductImageCreatePayload = {

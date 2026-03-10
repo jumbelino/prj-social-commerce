@@ -5,6 +5,7 @@ import { ReactNode, useState } from "react";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { SessionExpiredHandler } from "@/components/admin/SessionExpiredHandler";
+import { InactivityHandler } from "@/components/admin/InactivityHandler";
 
 interface AdminLayoutClientProps {
   children: ReactNode;
@@ -17,6 +18,7 @@ export function AdminLayoutClient({ children, userName }: AdminLayoutClientProps
   return (
     <>
       <SessionExpiredHandler />
+      <InactivityHandler />
       <div className="flex min-h-screen">
       <AdminSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex flex-1 flex-col lg:pl-64">

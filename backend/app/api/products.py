@@ -70,6 +70,10 @@ def create_product(
                 price_cents=variant.price_cents,
                 attributes_json=variant.attributes_json,
                 stock=variant.stock,
+                weight_kg=variant.weight_kg,
+                width_cm=variant.width_cm,
+                height_cm=variant.height_cm,
+                length_cm=variant.length_cm,
             )
         )
 
@@ -123,6 +127,10 @@ def update_product(
                     price_cents=variant.price_cents,
                     attributes_json=variant.attributes_json,
                     stock=variant.stock,
+                    weight_kg=variant.weight_kg,
+                    width_cm=variant.width_cm,
+                    height_cm=variant.height_cm,
+                    length_cm=variant.length_cm,
                 )
             )
 
