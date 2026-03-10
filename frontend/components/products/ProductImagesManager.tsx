@@ -219,7 +219,7 @@ export function ProductImagesManager({
         }
       );
 
-      if (!response.ok) {
+      if (!response.ok && response.status !== 204) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.detail || "Failed to delete image");
       }
