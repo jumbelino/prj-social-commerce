@@ -35,6 +35,9 @@ out/
 .env.test.local
 .env.production.local
 
+# Local secrets (never commit)
+.secrets/
+
 # IDE
 .idea/
 .vscode/
@@ -53,3 +56,6 @@ out/
 # Misc
 *.log
 *.tmp
+
+# Playwright
+frontend/test-results/

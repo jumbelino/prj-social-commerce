@@ -9,8 +9,10 @@ import { ErrorPanel } from "@/components/error-panel";
 import {
   ApiRequestError,
   createMercadoPagoPreference,
+  createMercadoPagoPayment,
   createOrder,
   type MercadoPagoPreferenceResponse,
+  type MercadoPagoPixPaymentResponse,
   type OrderRead,
 } from "@/lib/api";
 import { formatCents } from "@/lib/currency";
@@ -37,10 +39,11 @@ export default function CheckoutPage() {
     customerEmail: "",
     customerPhone: "",
   });
-  const [paymentMethod, setPaymentMethod] = useState<"checkout_pro">("checkout_pro");
+  const [paymentMethod, setPaymentMethod] = useState<"checkout_pro" | "pix">("checkout_pro");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [order, setOrder] = useState<OrderRead | null>(null);
   const [paymentPreference, setPaymentPreference] = useState<MercadoPagoPreferenceResponse | null>(null);
+  const [pixPayment, setPixPayment] = useState<MercadoPagoPixPaymentResponse | null>(null);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [isRedirectingToCart, setIsRedirectingToCart] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
@@ -67,7 +70,7 @@ export default function CheckoutPage() {
       !isRedirectingToCart &&
       selectedShipping !== null &&
       destinationPostalCodeDigits.length === 8 &&
-      paymentMethod === "checkout_pro",
+      (paymentMethod === "checkout_pro" || paymentMethod === "pix"),
     [destinationPostalCodeDigits.length, isRedirectingToCart, isSubmitting, items.length, paymentMethod, selectedShipping],
   );
 
@@ -82,6 +85,7 @@ export default function CheckoutPage() {
     setPaymentError(null);
     setOrder(null);
     setPaymentPreference(null);
+    setPixPayment(null);
     setIsRedirecting(false);
 
     if (!selectedShipping || destinationPostalCodeDigits.length !== 8) {
@@ -113,13 +117,19 @@ export default function CheckoutPage() {
       setOrder(createdOrder);
 
       try {
-        const preferenceResponse = await createMercadoPagoPreference(createdOrder.id);
-        setPaymentPreference(preferenceResponse);
-        clearCart();
-        setIsRedirecting(true);
-        window.setTimeout(() => {
-          window.location.assign(preferenceResponse.init_point);
-        }, 150);
+        if (paymentMethod === "checkout_pro") {
+          const preferenceResponse = await createMercadoPagoPreference(createdOrder.id);
+          setPaymentPreference(preferenceResponse);
+          clearCart();
+          setIsRedirecting(true);
+          window.setTimeout(() => {
+            window.location.assign(preferenceResponse.init_point);
+          }, 150);
+        } else if (paymentMethod === "pix") {
+          const pixResponse = await createMercadoPagoPayment(createdOrder.id);
+          setPixPayment(pixResponse);
+          clearCart();
+        }
       } catch (error) {
         setPaymentError(messageFromError(error));
       }
@@ -136,7 +146,7 @@ export default function CheckoutPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Checkout</p>
         <h1 className="mt-3 font-display text-4xl leading-tight text-slate-900">Create order and request payment</h1>
         <p className="mt-2 max-w-2xl text-base text-[var(--color-muted)]">
-          Confirm customer details, shipping, and totals before redirecting to Mercado Pago Checkout Pro (PIX + card).
+          Confirm customer details, shipping, and totals before proceeding to payment via Mercado Pago Checkout Pro or PIX.
         </p>
       </section>
 
@@ -208,7 +218,17 @@ export default function CheckoutPage() {
                 checked={paymentMethod === "checkout_pro"}
                 onChange={() => setPaymentMethod("checkout_pro")}
               />
-              <span>Mercado Pago Checkout Pro (PIX + card)</span>
+              <span>Mercado Pago Checkout Pro (card)</span>
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm text-slate-800">
+              <input
+                type="radio"
+                name="paymentMethod"
+                value="pix"
+                checked={paymentMethod === "pix"}
+                onChange={() => setPaymentMethod("pix")}
+              />
+              <span>PIX (instant payment)</span>
             </label>
           </fieldset>
 
@@ -217,7 +237,7 @@ export default function CheckoutPage() {
             disabled={!canSubmit}
             className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-accent-ink)] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-55"
           >
-            {isSubmitting ? "Processing..." : "Create order and go to payment"}
+            {isSubmitting ? "Processing..." : paymentMethod === "checkout_pro" ? "Create order and go to payment" : "Create order with PIX"}
           </button>
         </form>
 
@@ -295,6 +315,63 @@ export default function CheckoutPage() {
           >
             {paymentPreference.init_point}
           </a>
+        </section>
+      ) : null}
+
+      {pixPayment ? (
+        <section className="space-y-4 rounded-2xl border border-[var(--color-line)] bg-[var(--color-card)] p-5 shadow-[0_10px_26px_rgba(18,30,40,0.07)]">
+          <h2 className="font-display text-3xl text-slate-900">PIX Payment</h2>
+          <div className="rounded-lg border border-[var(--color-line)] bg-white p-4">
+            <p className="text-sm text-slate-700">
+              Payment ID: <span className="font-semibold">{pixPayment.payment_id}</span>
+            </p>
+            <p className="text-sm text-slate-700">
+              Status: <span className="font-semibold">{pixPayment.status}</span>
+            </p>
+            {pixPayment.external_reference ? (
+              <p className="text-sm text-slate-700">
+                Order Reference: <span className="font-semibold">{pixPayment.external_reference}</span>
+              </p>
+            ) : null}
+          </div>
+
+          {pixPayment.qr_code ? (
+            <div className="rounded-lg border border-[var(--color-line)] bg-white p-4">
+              <p className="mb-2 text-sm font-semibold text-slate-700">PIX Copy/Paste Code:</p>
+              <code className="block break-all rounded bg-slate-50 p-3 text-xs font-mono text-slate-800">
+                {pixPayment.qr_code}
+              </code>
+            </div>
+          ) : null}
+
+          {pixPayment.qr_code_base64 ? (
+            <div className="rounded-lg border border-[var(--color-line)] bg-white p-4">
+              <p className="mb-2 text-sm font-semibold text-slate-700">PIX QR Code:</p>
+              <img
+                src={`data:image/png;base64,${pixPayment.qr_code_base64}`}
+                alt="PIX QR Code"
+                className="max-w-[200px] rounded"
+              />
+            </div>
+          ) : null}
+
+          {pixPayment.ticket_url ? (
+            <div className="rounded-lg border border-[var(--color-line)] bg-white p-4">
+              <p className="mb-2 text-sm font-semibold text-slate-700">Boleto/Payment Ticket:</p>
+              <a
+                href={pixPayment.ticket_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-semibold text-[var(--color-accent)] underline"
+              >
+                {pixPayment.ticket_url}
+              </a>
+            </div>
+          ) : null}
+
+          <p className="text-sm text-slate-600">
+            Complete your payment using one of the methods above. The order will be confirmed after payment is received.
+          </p>
         </section>
       ) : null}
     </div>

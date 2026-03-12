@@ -144,6 +144,7 @@ export function ProductImagesManager({
           body: JSON.stringify({
             image_ids_in_order: newImages.map((img) => img.id),
           }),
+          credentials: "include",
         });
       } catch (error) {
         console.error("Failed to persist reorder:", error);
@@ -176,6 +177,7 @@ export function ProductImagesManager({
         {
           method: "POST",
           body: formData,
+          credentials: "include",
         }
       );
 
@@ -216,6 +218,7 @@ export function ProductImagesManager({
         `/api/admin/products/${productId}/images/${removingImageId}`,
         {
           method: "DELETE",
+          credentials: "include",
         }
       );
 

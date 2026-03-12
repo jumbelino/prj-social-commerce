@@ -7,7 +7,7 @@ import { ErrorPanel } from "@/components/error-panel";
 import EmptyState from "@/components/admin/EmptyState";
 
 const PAGE_SIZE = 20;
-const STATUSES = ["pending", "confirmed", "shipped", "delivered", "cancelled"] as const;
+const STATUSES = ["pending", "paid", "shipped", "delivered", "cancelled"] as const;
 
 export function OrdersClient() {
   const [orders, setOrders] = useState<OrderRead[]>([]);
@@ -190,7 +190,7 @@ export function OrdersClient() {
                     <div className="text-right">
                       <p className="font-medium">{formatCents(order.total_cents)}</p>
                       <p className={`text-xs font-medium ${
-                        order.status === "confirmed" ? "text-green-600" :
+                        order.status === "paid" ? "text-green-600" :
                         order.status === "cancelled" ? "text-red-600" :
                         order.status === "shipped" ? "text-blue-600" :
                         order.status === "delivered" ? "text-emerald-600" :

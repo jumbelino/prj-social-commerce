@@ -1,11 +1,31 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
 
+import { authOptions } from "@/auth";
 import { ErrorPanel } from "@/components/error-panel";
-import { ApiRequestError, getAdminCustomerById, type CustomerWithOrders } from "@/lib/api";
+import { getAdminLoginRedirect } from "@/lib/auth-redirect";
+
+export const dynamic = "force-dynamic";
+
+const API_BASE = process.env.INTERNAL_API_BASE_URL || "http://localhost:8000";
+
+type CustomerOrder = {
+  id: string;
+  status: string;
+  total_cents: number;
+  created_at: string;
+  items: Array<unknown>;
+};
+
+type CustomerWithOrders = {
+  id: number;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  total_orders: number;
+  orders: CustomerOrder[];
+};
 
 function formatPrice(cents: number): string {
   return new Intl.NumberFormat("pt-BR", {
@@ -59,93 +79,47 @@ function getStatusColor(status: string): string {
   return colorMap[status] || "bg-gray-100 text-gray-800";
 }
 
-export default function CustomerDetailPage() {
-  const router = useRouter();
-  const params = useParams<{ id: string }>();
-  const customerId = params.id;
+async function loadCustomer(customerId: string, accessToken: string): Promise<{ customer: CustomerWithOrders | null; error: string | null }> {
+  try {
+    const response = await fetch(`${API_BASE}/admin/customers/${customerId}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
 
-  const [customer, setCustomer] = useState<CustomerWithOrders | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [retryTrigger, setRetryTrigger] = useState(0);
-
-  useEffect(() => {
-    let isActive = true;
-
-    async function loadCustomer() {
-      setIsLoading(true);
-      setErrorMessage(null);
-
-      try {
-        const data = await getAdminCustomerById(customerId);
-        if (isActive) {
-          setCustomer(data);
-        }
-      } catch (error) {
-        const message =
-          error instanceof ApiRequestError ? error.message : "Failed to load customer";
-        if (isActive) {
-          setErrorMessage(message);
-        }
-      } finally {
-        if (isActive) {
-          setIsLoading(false);
-        }
+    const payload = (await response.json()) as { detail?: string } | CustomerWithOrders;
+    if (!response.ok) {
+      if (typeof payload === "object" && payload && "detail" in payload && typeof payload.detail === "string") {
+        return { customer: null, error: payload.detail };
       }
+      return { customer: null, error: `Request failed with status ${response.status}.` };
     }
 
-    if (customerId) {
-      loadCustomer();
-    }
+    return { customer: payload as CustomerWithOrders, error: null };
+  } catch {
+    return { customer: null, error: "Failed to load customer." };
+  }
+}
 
-    return () => {
-      isActive = false;
-    };
-  }, [customerId, retryTrigger]);
+export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const session = await getServerSession(authOptions);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-accent)] mx-auto mb-4"></div>
-          <p className="text-[var(--color-muted)]">Carregando cliente...</p>
-        </div>
-      </div>
-    );
+  if (!session?.accessToken || !session.roles?.includes("admin")) {
+    redirect(getAdminLoginRedirect());
   }
 
-  if (errorMessage && !customer) {
-    return (
-      <div className="space-y-4">
-        <ErrorPanel title="Cliente nao encontrado" message={errorMessage} />
-        <div className="flex gap-3">
-          <button
-            onClick={() => setRetryTrigger((t) => t + 1)}
-            className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-[var(--color-accent-ink)] hover:opacity-90"
-          >
-            Tentar novamente
-          </button>
-          <button
-            onClick={() => router.push("/admin/customers")}
-            className="text-sm text-[var(--color-accent)] hover:underline"
-          >
-            Voltar para lista de clientes
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const { customer, error } = await loadCustomer(id, session.accessToken);
 
-  if (!customer) {
+  if (error || !customer) {
     return (
       <div className="space-y-4">
-        <ErrorPanel title="Cliente nao encontrado" message="O cliente solicitado nao existe." />
-        <button
-          onClick={() => router.push("/admin/customers")}
-          className="text-sm text-[var(--color-accent)] hover:underline"
-        >
+        <ErrorPanel title="Cliente nao encontrado" message={error ?? "O cliente solicitado nao existe."} />
+        <Link href="/admin/customers" className="text-sm text-[var(--color-accent)] hover:underline">
           Voltar para lista de clientes
-        </button>
+        </Link>
       </div>
     );
   }
@@ -161,12 +135,12 @@ export default function CustomerDetailPage() {
             Detalhes e historico de pedidos
           </p>
         </div>
-        <button
-          onClick={() => router.push("/admin/customers")}
+        <Link
+          href="/admin/customers"
           className="text-sm text-[var(--color-muted)] hover:text-slate-700 transition-colors"
         >
           Voltar para lista
-        </button>
+        </Link>
       </div>
 
       <section className="bg-[var(--color-card)] rounded-lg border border-[var(--color-line)] p-6 space-y-4">

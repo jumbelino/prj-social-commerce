@@ -26,6 +26,7 @@ async function uploadImageToProduct(productId: string, file: File): Promise<void
   const response = await fetch(`/api/admin/products/${productId}/images/upload`, {
     method: "POST",
     body: formData,
+    credentials: "include",
   });
 
   if (!response.ok) {

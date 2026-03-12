@@ -310,7 +310,11 @@ export default function CartPage() {
             CEP de destino
             <input
               id="destinationPostalCode"
-              className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm"
+              className={`mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm ${
+                postalCodeDigits.length > 0 && postalCodeDigits.length < 8
+                  ? "border-red-400 focus:border-red-500"
+                  : "border-[var(--color-line)]"
+              }`}
               inputMode="numeric"
               maxLength={8}
               value={postalCodeDigits}
@@ -320,6 +324,9 @@ export default function CartPage() {
               }}
               placeholder="00000000"
             />
+            {postalCodeDigits.length > 0 && postalCodeDigits.length < 8 ? (
+              <span className="mt-1 block text-xs text-red-600">CEP must have exactly 8 digits</span>
+            ) : null}
           </label>
           <button
             type="submit"

@@ -9,6 +9,14 @@ import { formatCents } from "@/lib/currency";
 
 const STATUSES = ["pending", "paid", "shipped", "delivered", "cancelled"] as const;
 
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  pending: ["paid", "cancelled"],
+  paid: ["shipped", "cancelled"],
+  shipped: ["delivered", "cancelled"],
+  delivered: [],
+  cancelled: [],
+};
+
 export default function OrderDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -277,20 +285,26 @@ export default function OrderDetailPage() {
           <section className="bg-[var(--color-card)] rounded-lg border border-[var(--color-line)] p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-4">Atualizar Status</h2>
             <div className="flex flex-wrap gap-2">
-              {STATUSES.map((status) => (
-                <button
-                  key={status}
-                  onClick={() => handleStatusUpdate(status)}
-                  disabled={isUpdating || order.status === status}
-                  className={`px-3 py-2 text-xs font-medium rounded-lg transition capitalize ${
-                    order.status === status
-                      ? "bg-slate-900 text-white"
-                      : "bg-white border border-[var(--color-line)] text-slate-700 hover:border-slate-400"
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  {status}
-                </button>
-              ))}
+              {STATUSES.map((status) => {
+                const isCurrentStatus = order.status === status;
+                const isValidTransition = isCurrentStatus || VALID_TRANSITIONS[order.status]?.includes(status) || false;
+                return (
+                  <button
+                    key={status}
+                    onClick={() => handleStatusUpdate(status)}
+                    disabled={isUpdating || !isValidTransition}
+                    className={`px-3 py-2 text-xs font-medium rounded-lg transition capitalize ${
+                      isCurrentStatus
+                        ? "bg-slate-900 text-white"
+                        : isValidTransition
+                          ? "bg-white border border-[var(--color-line)] text-slate-700 hover:border-slate-400"
+                          : "bg-gray-50 text-gray-300 border border-gray-100 cursor-not-allowed"
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {status}
+                  </button>
+                );
+              })}
             </div>
             {isUpdating && (
               <p className="text-xs text-[var(--color-muted)] mt-3">Atualizando...</p>

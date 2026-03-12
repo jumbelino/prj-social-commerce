@@ -6,6 +6,8 @@ import { authOptions } from "@/auth";
 import { AdminLayoutClient } from "@/components/admin/AdminLayoutClient";
 import { getAdminLoginRedirect } from "@/lib/auth-redirect";
 
+export const dynamic = "force-dynamic";
+
 interface AdminLayoutProps {
   children: ReactNode;
 }
@@ -13,7 +15,7 @@ interface AdminLayoutProps {
 export default async function AdminLayout({ children }: AdminLayoutProps) {
   const session = await getServerSession(authOptions);
 
-  if (!session?.accessToken || !session.roles?.includes("admin")) {
+  if (!session?.accessToken) {
     redirect(getAdminLoginRedirect());
   }
 

@@ -202,6 +202,7 @@ async function requestJsonFromUrl<TResponse>(url: string, init?: RequestInit): P
       ...init,
       headers,
       cache: "no-store",
+      credentials: "include",
     })
   } catch {
     throw new ApiRequestError("Could not reach API server. Check backend availability.", 0)
@@ -367,27 +368,6 @@ export type CustomerWithOrders = {
 
 export function getAdminCustomerById(customerId: string): Promise<CustomerWithOrders> {
   return requestNextApi<CustomerWithOrders>(`/api/admin/customers/${customerId}`)
-}
-
-export type InventoryMovementCreatePayload = {
-  variant_id: string
-  delta: number
-  reason: string
-}
-
-export type InventoryMovementRead = {
-  id: number
-  variant_id: string
-  delta: number
-  reason: string
-  created_at: string
-}
-
-export function createInventoryMovement(payload: InventoryMovementCreatePayload): Promise<InventoryMovementRead> {
-  return requestNextApi<InventoryMovementRead>("/api/admin/inventory/movements", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  })
 }
 
 export type DashboardMetrics = {

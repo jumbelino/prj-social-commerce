@@ -5,7 +5,7 @@ import { updateAdminOrderStatus } from "@/lib/api";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pendente",
-  confirmed: "Confirmado",
+  paid: "Pago",
   shipped: "Enviado",
   delivered: "Entregue",
   cancelled: "Cancelado",
@@ -13,22 +13,21 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
-  confirmed: "bg-blue-100 text-blue-800",
+  paid: "bg-blue-100 text-blue-800",
   shipped: "bg-purple-100 text-purple-800",
   delivered: "bg-green-100 text-green-800",
   cancelled: "bg-red-100 text-red-800",
 };
 
-// Valid status transitions based on backend rules
 const VALID_TRANSITIONS: Record<string, string[]> = {
-  pending: ["confirmed", "cancelled"],
-  confirmed: ["shipped", "cancelled"],
+  pending: ["paid", "cancelled"],
+  paid: ["shipped", "cancelled"],
   shipped: ["delivered", "cancelled"],
   delivered: [],
   cancelled: [],
 };
 
-const ALL_STATUSES = ["pending", "confirmed", "shipped", "delivered", "cancelled"] as const;
+const ALL_STATUSES = ["pending", "paid", "shipped", "delivered", "cancelled"] as const;
 
 interface OrderStatusUpdateProps {
   orderId: string;
