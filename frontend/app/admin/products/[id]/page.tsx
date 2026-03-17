@@ -5,7 +5,14 @@ import { useRouter, useParams } from "next/navigation";
 
 import { ErrorPanel } from "@/components/error-panel";
 import { ProductImagesManager } from "@/components/products/ProductImagesManager";
-import { ApiRequestError, getProductById, type Product, type ProductImage } from "@/lib/api";
+import { ProductForm } from "@/components/products/ProductForm";
+import {
+  ApiRequestError,
+  getProductById,
+  type Product,
+  type ProductImage,
+  type ProductCreatePayload,
+} from "@/lib/api";
 
 export default function EditProductPage() {
   const router = useRouter();
@@ -18,10 +25,6 @@ export default function EditProductPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [retryTrigger, setRetryTrigger] = useState(0);
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [active, setActive] = useState(true);
-
   useEffect(() => {
     let isActive = true;
 
@@ -33,9 +36,6 @@ export default function EditProductPage() {
         const data = await getProductById(productId);
         if (isActive) {
           setProduct(data);
-          setTitle(data.title);
-          setDescription(data.description || "");
-          setActive(data.active);
         }
       } catch (error) {
         const message =
@@ -59,8 +59,7 @@ export default function EditProductPage() {
     };
   }, [productId, retryTrigger]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (data: ProductCreatePayload | Partial<Product>) => {
     setIsSubmitting(true);
     setErrorMessage(null);
 
@@ -68,11 +67,7 @@ export default function EditProductPage() {
       const response = await fetch(`/api/admin/products/${productId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          description: description || null,
-          active,
-        }),
+        body: JSON.stringify(data),
       });
 
       if (!response.ok) {
@@ -142,7 +137,7 @@ export default function EditProductPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Editar Produto</h1>
           <p className="text-sm text-[var(--color-muted)] mt-1">
-            Atualize as informacoes do produto
+            Atualize as informacoes do produto e de suas variantes
           </p>
         </div>
         <button
@@ -157,63 +152,13 @@ export default function EditProductPage() {
         <ErrorPanel title="Erro ao salvar" message={errorMessage} />
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <section className="bg-[var(--color-card)] rounded-lg border border-[var(--color-line)] p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-slate-900">Informacoes do Produto</h2>
-          
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="title" className="block text-sm font-medium text-slate-700 mb-1">
-                Titulo *
-              </label>
-              <input
-                id="title"
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-                className="w-full px-3 py-2 border border-[var(--color-line)] rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="description" className="block text-sm font-medium text-slate-700 mb-1">
-                Descricao
-              </label>
-              <textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={4}
-                className="w-full px-3 py-2 border border-[var(--color-line)] rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent resize-none"
-              />
-            </div>
-
-            <div className="flex items-center gap-3">
-              <input
-                id="active"
-                type="checkbox"
-                checked={active}
-                onChange={(e) => setActive(e.target.checked)}
-                className="w-4 h-4 text-[var(--color-accent)] border-[var(--color-line)] rounded focus:ring-[var(--color-accent)]"
-              />
-              <label htmlFor="active" className="text-sm text-slate-700">
-                Produto ativo (visivel na loja)
-              </label>
-            </div>
-          </div>
-
-          <div className="pt-4 flex justify-end">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-4 py-2 bg-[var(--color-accent)] text-[var(--color-accent-ink)] font-semibold rounded-lg hover:brightness-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? "Salvando..." : "Salvar alteracoes"}
-            </button>
-          </div>
-        </section>
-      </form>
+      <section className="bg-[var(--color-card)] rounded-lg border border-[var(--color-line)] p-6">
+        <ProductForm
+          initialData={product}
+          onSubmit={handleSubmit}
+          isSubmitting={isSubmitting}
+        />
+      </section>
 
       <section className="bg-[var(--color-card)] rounded-lg border border-[var(--color-line)] p-6">
         <ProductImagesManager
@@ -223,35 +168,6 @@ export default function EditProductPage() {
             setProduct((prev) => (prev ? { ...prev, images: newImages } : null));
           }}
         />
-      </section>
-
-      <section className="bg-[var(--color-card)] rounded-lg border border-[var(--color-line)] p-6">
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Variacoes</h2>
-        
-        {product.variants && product.variants.length > 0 ? (
-          <div className="space-y-3">
-            {product.variants.map((variant) => (
-              <div
-                key={variant.id}
-                className="flex items-center justify-between p-4 rounded-lg border border-[var(--color-line)] bg-[#fbf8f1]"
-              >
-                <div>
-                  <p className="font-medium text-slate-900">{variant.sku}</p>
-                  <p className="text-sm text-[var(--color-muted)]">
-                    Preco: R$ {(variant.price_cents / 100).toFixed(2)} | Estoque: {variant.stock}
-                  </p>
-                  {variant.attributes_json && Object.keys(variant.attributes_json).length > 0 && (
-                    <p className="text-xs text-[var(--color-muted)] mt-1">
-                      {JSON.stringify(variant.attributes_json)}
-                    </p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-[var(--color-muted)]">Este produto nao tem variacoes.</p>
-        )}
       </section>
     </div>
   );

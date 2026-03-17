@@ -1,5 +1,6 @@
 # pyright: reportMissingImports=false
 
+import json
 import os
 from typing import BinaryIO
 from urllib.parse import urlparse
@@ -45,6 +46,18 @@ class MinioStorage:
     def upload_file(self, *, object_key: str, file_obj: BinaryIO, content_type: str | None) -> None:
         if not self._client.bucket_exists(self._bucket):
             self._client.make_bucket(self._bucket)
+            policy = {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {"AWS": ["*"]},
+                        "Action": ["s3:GetObject"],
+                        "Resource": [f"arn:aws:s3:::{self._bucket}/*"],
+                    }
+                ],
+            }
+            self._client.set_bucket_policy(self._bucket, json.dumps(policy))
         self._client.put_object(
             bucket_name=self._bucket,
             object_name=object_key,

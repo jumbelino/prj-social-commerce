@@ -184,6 +184,12 @@ function extractErrorMessage(payload: unknown): string | null {
     if (typeof detail === "string" && detail.trim() !== "") {
       return detail
     }
+    if (typeof detail === "object" && detail !== null && "message" in detail) {
+      const msg = (detail as { message?: unknown }).message
+      if (typeof msg === "string" && msg.trim() !== "") {
+        return msg
+      }
+    }
   }
 
   return null

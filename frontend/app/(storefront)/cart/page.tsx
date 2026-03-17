@@ -217,6 +217,8 @@ export default function CartPage() {
           nextMessage =
             "Shipping quote blocked: one or more variants are missing dimensions (weight_kg, width_cm, height_cm, length_cm).";
         }
+      } else if (error instanceof ApiRequestError && error.status === 404 && nextMessage === "variant not found") {
+        nextMessage = "Um ou mais itens no seu carrinho não estão mais disponíveis no catálogo. Por favor, remova-os para recálculo.";
       }
 
       setSelectedShipping(null);

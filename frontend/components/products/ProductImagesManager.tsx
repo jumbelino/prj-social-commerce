@@ -255,6 +255,9 @@ export function ProductImagesManager({
         <h3 className="font-display text-lg font-semibold text-slate-900">
           Imagens do Produto
         </h3>
+        <p className="text-xs text-[var(--color-muted)]">
+          (As imagens carregadas, reordenadas e excluídas são salvas com upload imediato)
+        </p>
         <span className="text-sm text-[var(--color-muted)]">
           {images.length} / {MAX_IMAGES}
         </span>

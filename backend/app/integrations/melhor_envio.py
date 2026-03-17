@@ -20,7 +20,7 @@ def read_melhor_envio_token() -> str:
     token = os.getenv("MELHOR_ENVIO_TOKEN")
     if token is None or token.strip() == "":
         raise RuntimeError("Missing required environment variable: MELHOR_ENVIO_TOKEN")
-    return token
+    return token.strip()
 
 
 def read_shipping_origin_postal_code() -> str:
@@ -40,17 +40,27 @@ class MelhorEnvioClient:
 
     def calculate_shipment(self, payload: Mapping[str, object]) -> list[Mapping[str, object]]:
         headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
             "Authorization": f"Bearer {self._token}",
+            "User-Agent": "Aurea Social Commerce (contato@socialcommerce.com.br)",
         }
         response = httpx.post(
             f"{self._base_url}/api/v2/me/shipment/calculate",
             headers=headers,
             json=payload,
             timeout=30.0,
+            follow_redirects=True,
         )
-        if response.status_code >= 400:
+        if response.status_code != 200:
+            if "text/html" in response.headers.get("content-type", "").lower():
+                raise MelhorEnvioError(response.status_code, f"Received HTML response (possibly a redirect or error page). Status: {response.status_code}")
             raise MelhorEnvioError(response.status_code, response.text)
-        response_json: object = response.json()
+        try:
+            response_json: object = response.json()
+        except ValueError as e:
+            raise MelhorEnvioError(response.status_code, f"Invalid JSON response. Raw text: {response.text!r} | Error: {e}")
+        
         if not isinstance(response_json, list):
             raise MelhorEnvioError(response.status_code, f"unexpected response body: {response.text}")
         return cast(list[Mapping[str, object]], response_json)

@@ -28,12 +28,6 @@ export default async function AdminPage() {
             <span className="rounded-full border border-[var(--color-line)] bg-white/80 px-3 py-1">
               {session.user?.email ?? session.user?.name ?? "admin"}
             </span>
-            <Link
-              href="/api/auth/signout?callbackUrl=%2F"
-              className="rounded-lg border border-[var(--color-line)] bg-white/85 px-3 py-1.5 font-semibold transition hover:border-slate-400 hover:text-slate-900"
-            >
-              Sair
-            </Link>
           </div>
         </div>
       </section>

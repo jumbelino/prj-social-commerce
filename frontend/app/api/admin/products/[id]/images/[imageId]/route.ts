@@ -42,6 +42,10 @@ export async function DELETE(
     );
   }
 
+  if (response.status === 204) {
+    return new NextResponse(null, { status: 204 });
+  }
+
   const contentType = response.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {
     const payload = (await response.json()) as unknown;

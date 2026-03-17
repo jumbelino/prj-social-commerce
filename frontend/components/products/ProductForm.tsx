@@ -383,7 +383,8 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false, pendi
                   id={`variants.${index}.weightKg`}
                   type="number"
                   step="0.001"
-                  min="0"
+                  min="0.001"
+                  required
                   value={variant.weightKg}
                   onChange={(e) => updateVariant(index, "weightKg", e.target.value)}
                   placeholder="Ex: 0.5"
@@ -401,7 +402,8 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false, pendi
                 <input
                   id={`variants.${index}.widthCm`}
                   type="number"
-                  min="0"
+                  min="1"
+                  required
                   value={variant.widthCm}
                   onChange={(e) => updateVariant(index, "widthCm", e.target.value)}
                   placeholder="Ex: 20"
@@ -419,7 +421,8 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false, pendi
                 <input
                   id={`variants.${index}.heightCm`}
                   type="number"
-                  min="0"
+                  min="1"
+                  required
                   value={variant.heightCm}
                   onChange={(e) => updateVariant(index, "heightCm", e.target.value)}
                   placeholder="Ex: 30"
@@ -437,7 +440,8 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false, pendi
                 <input
                   id={`variants.${index}.lengthCm`}
                   type="number"
-                  min="0"
+                  min="1"
+                  required
                   value={variant.lengthCm}
                   onChange={(e) => updateVariant(index, "lengthCm", e.target.value)}
                   placeholder="Ex: 40"
