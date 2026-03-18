@@ -117,22 +117,55 @@ def update_product(
         product.active = payload.active
 
     if payload.variants is not None:
-        for existing in product.variants:
-            db.delete(existing)
-        for variant in payload.variants:
-            db.add(
-                ProductVariant(
-                    product_id=product.id,
-                    sku=variant.sku,
-                    price_cents=variant.price_cents,
-                    attributes_json=variant.attributes_json,
-                    stock=variant.stock,
-                    weight_kg=variant.weight_kg,
-                    width_cm=variant.width_cm,
-                    height_cm=variant.height_cm,
-                    length_cm=variant.length_cm,
+        existing_by_sku = {v.sku: v for v in product.variants}
+        incoming_skus = set()
+
+        for variant_data in payload.variants:
+            sku = variant_data.sku
+            if sku and sku in existing_by_sku:
+                # Update existing variant in-place
+                existing = existing_by_sku[sku]
+                incoming_skus.add(sku)
+                if variant_data.price_cents is not None:
+                    existing.price_cents = variant_data.price_cents
+                if variant_data.attributes_json is not None:
+                    existing.attributes_json = variant_data.attributes_json
+                if variant_data.stock is not None:
+                    existing.stock = variant_data.stock
+                if variant_data.weight_kg is not None:
+                    existing.weight_kg = variant_data.weight_kg
+                if variant_data.width_cm is not None:
+                    existing.width_cm = variant_data.width_cm
+                if variant_data.height_cm is not None:
+                    existing.height_cm = variant_data.height_cm
+                if variant_data.length_cm is not None:
+                    existing.length_cm = variant_data.length_cm
+            elif sku:
+                # New variant
+                incoming_skus.add(sku)
+                db.add(
+                    ProductVariant(
+                        product_id=product.id,
+                        sku=sku,
+                        price_cents=variant_data.price_cents or 0,
+                        attributes_json=variant_data.attributes_json or {},
+                        stock=variant_data.stock or 0,
+                        weight_kg=variant_data.weight_kg,
+                        width_cm=variant_data.width_cm,
+                        height_cm=variant_data.height_cm,
+                        length_cm=variant_data.length_cm,
+                    )
                 )
-            )
+
+        # Remove variants not in payload (only if safe to delete)
+        for sku, existing in existing_by_sku.items():
+            if sku not in incoming_skus:
+                try:
+                    db.delete(existing)
+                    db.flush()
+                except Exception:
+                    db.rollback()
+
 
     db.commit()
     stmt = (

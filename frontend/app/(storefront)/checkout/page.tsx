@@ -20,7 +20,7 @@ import { formatCents } from "@/lib/currency";
 type CheckoutForm = {
   customerName: string;
   customerEmail: string;
-  customerPhone: string;
+  customerPhone: string; // digits only, without +55
 };
 
 function messageFromError(error: unknown): string {
@@ -98,7 +98,7 @@ export default function CheckoutPage() {
       const createdOrder = await createOrder({
         customer_name: form.customerName || undefined,
         customer_email: form.customerEmail || undefined,
-        customer_phone: form.customerPhone || undefined,
+        customer_phone: form.customerPhone ? `+55${form.customerPhone.replace(/\D/g, "")}` : undefined,
         items: items.map((item) => ({
           variant_id: item.variantId,
           quantity: item.quantity,
@@ -198,19 +198,25 @@ export default function CheckoutPage() {
             />
           </label>
           <label className="block text-sm font-semibold text-slate-700" htmlFor="customerPhone">
-            Phone
-            <input
-              id="customerPhone"
-              className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm"
-              value={form.customerPhone}
-              onChange={(event) => setForm((current) => ({ ...current, customerPhone: event.target.value }))}
-              placeholder="+55 11 99999-9999"
-            />
+            Telefone
+            <div className="mt-1 flex rounded-lg border border-[var(--color-line)] bg-white overflow-hidden">
+              <span className="flex items-center px-3 py-2 text-sm text-slate-500 bg-slate-50 border-r border-[var(--color-line)] select-none">
+                +55
+              </span>
+              <input
+                id="customerPhone"
+                className="flex-1 px-3 py-2 text-sm bg-transparent outline-none"
+                value={form.customerPhone}
+                onChange={(event) => setForm((current) => ({ ...current, customerPhone: event.target.value }))}
+                placeholder="(11) 99999-9999"
+                type="tel"
+              />
+            </div>
           </label>
 
           <fieldset className="space-y-2">
-            <legend className="text-sm font-semibold text-slate-700">Payment method</legend>
-            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm text-slate-800">
+            <legend className="text-sm font-semibold text-slate-700">Forma de pagamento</legend>
+            <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-[var(--color-line)] bg-white px-3 py-2.5 text-sm text-slate-800 transition hover:border-slate-300">
               <input
                 type="radio"
                 name="paymentMethod"
@@ -218,9 +224,10 @@ export default function CheckoutPage() {
                 checked={paymentMethod === "checkout_pro"}
                 onChange={() => setPaymentMethod("checkout_pro")}
               />
-              <span>Mercado Pago Checkout Pro (card)</span>
+              <svg viewBox="0 0 64 18" className="h-4 fill-[#009ee3]" aria-hidden="true"><path d="M9.2 0C4.1 0 0 4.1 0 9.2s4.1 9.2 9.2 9.2 9.2-4.1 9.2-9.2S14.3 0 9.2 0zm0 14.7c-3 0-5.5-2.5-5.5-5.5s2.5-5.5 5.5-5.5 5.5 2.5 5.5 5.5-2.4 5.5-5.5 5.5zM22 5.3h3.7v9.4H22zm1.8-4.3c1.2 0 2.2 1 2.2 2.2s-1 2.2-2.2 2.2-2.2-1-2.2-2.2 1-2.2 2.2-2.2zm12.6 4c-1.2 0-2.2.5-2.9 1.3V5.3H30v9.4h3.5v-4.5c0-1.3.7-2 1.8-2 1.1 0 1.7.7 1.7 2v4.5h3.5V9.7c0-2.9-1.7-4.7-4.1-4.7zm15.7 4.8c0-2.8-2.3-5-5.2-5s-5.2 2.2-5.2 5 2.3 5 5.2 5 5.2-2.2 5.2-5zm-6.8 0c0-1 .7-1.7 1.6-1.7s1.6.7 1.6 1.7-.7 1.7-1.6 1.7-1.6-.7-1.6-1.7z"/></svg>
+              <span className="font-medium">Mercado Pago</span>
             </label>
-            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm text-slate-800">
+            <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-[var(--color-line)] bg-white px-3 py-2.5 text-sm text-slate-800 transition hover:border-slate-300">
               <input
                 type="radio"
                 name="paymentMethod"
@@ -228,7 +235,8 @@ export default function CheckoutPage() {
                 checked={paymentMethod === "pix"}
                 onChange={() => setPaymentMethod("pix")}
               />
-              <span>PIX (instant payment)</span>
+              <svg viewBox="0 0 512 512" className="h-4 fill-[#32bcad]" aria-hidden="true"><path d="M392.5 296.4L297.6 392c-23.5 23.5-61.7 23.5-85.2 0l-95.5-95.5c-6-6-15.6-6-21.6 0l-32 32c-6 6-6 15.6 0 21.6l95.5 95.5c46.9 46.9 123.1 46.9 170 0l94.8-94.8c6-6 6-15.6 0-21.6l-32-32c-6-5.9-15.7-5.9-21.6-.7zm-95.3-176l-94.8 94.8c-6 6-6 15.6 0 21.6l32 32c6 6 15.6 6 21.6 0l95.5-95.5c23.5-23.5 61.7-23.5 85.2 0l95.5 95.5c6 6 15.6 6 21.6 0l32-32c6-6 6-15.6 0-21.6l-95.5-95.5c-47-47-123.2-47-170.1.7z"/></svg>
+              <span className="font-medium">PIX via Mercado Pago</span>
             </label>
           </fieldset>
 

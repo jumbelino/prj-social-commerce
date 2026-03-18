@@ -254,6 +254,13 @@ export default function CartPage() {
                 <div>
                   <h2 className="font-display text-2xl text-slate-900">{item.productTitle}</h2>
                   <p className="text-sm text-[var(--color-muted)]">SKU: {item.sku}</p>
+                  {item.attributes && Object.keys(item.attributes).length > 0 ? (
+                    <p className="text-xs text-slate-500">
+                      {Object.entries(item.attributes)
+                        .map(([k, v]) => `${k}: ${v}`)
+                        .join(" · ")}
+                    </p>
+                  ) : null}
                   <p className="text-sm text-[var(--color-muted)]">{formatCents(item.unitPriceCents)} each</p>
                 </div>
 

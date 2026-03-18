@@ -4,11 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navItems = [
-  { label: "Dashboard", href: "/admin", icon: "📊" },
-  { label: "Produtos", href: "/admin/products", icon: "📦" },
-  { label: "Clientes", href: "/admin/customers", icon: "👥" },
-  { label: "Pedidos", href: "/admin/orders", icon: "📋" },
-  { label: "Venda Assistida", href: "/admin/assisted-sale", icon: "💰" },
+  { label: "Dashboard", href: "/admin" },
+  { label: "Produtos", href: "/admin/products" },
+  { label: "Clientes", href: "/admin/customers" },
+  { label: "Pedidos", href: "/admin/orders" },
+  { label: "Venda Assistida", href: "/admin/assisted-sale" },
 ];
 
 export function AdminSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
@@ -58,7 +58,6 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: ()
                         : "text-[var(--color-muted)] hover:bg-[var(--color-bg-soft)] hover:text-[var(--color-text)]"
                     }`}
                   >
-                    <span className="text-base">{item.icon}</span>
                     <span>{item.label}</span>
                   </Link>
                 </li>

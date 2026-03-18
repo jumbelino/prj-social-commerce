@@ -21,13 +21,8 @@ export default async function AdminPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Admin</p>
             <h1 className="mt-3 font-display text-4xl leading-tight text-slate-900">Dashboard</h1>
             <p className="mt-2 max-w-2xl text-base text-[var(--color-muted)]">
-              Visão geral das operações. Autenticado com Keycloak.
+              Visão geral das operações.
             </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-slate-700">
-            <span className="rounded-full border border-[var(--color-line)] bg-white/80 px-3 py-1">
-              {session.user?.email ?? session.user?.name ?? "admin"}
-            </span>
           </div>
         </div>
       </section>

@@ -11,6 +11,7 @@ export type CartItem = {
   sku: string;
   unitPriceCents: number;
   quantity: number;
+  attributes?: Record<string, string>;
 };
 
 export type SelectedShippingOption = {
@@ -61,6 +62,13 @@ function parseCartItems(rawItems: unknown): CartItem[] {
     .filter((entry) => typeof entry === "object" && entry !== null)
     .map((entry) => {
       const item = entry as Partial<CartItem>;
+      const rawAttrs = (item as Record<string, unknown>).attributes;
+      const attributes: Record<string, string> | undefined =
+        typeof rawAttrs === "object" && rawAttrs !== null
+          ? Object.fromEntries(
+              Object.entries(rawAttrs as Record<string, unknown>).map(([k, v]) => [k, String(v)])
+            )
+          : undefined;
       return {
         productId: String(item.productId ?? ""),
         productTitle: String(item.productTitle ?? ""),
@@ -68,6 +76,7 @@ function parseCartItems(rawItems: unknown): CartItem[] {
         sku: String(item.sku ?? ""),
         unitPriceCents: Number(item.unitPriceCents ?? 0),
         quantity: Number(item.quantity ?? 0),
+        ...(attributes ? { attributes } : {}),
       };
     })
     .filter(
