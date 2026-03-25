@@ -31,3 +31,49 @@ body {
 .font-display {
   font-family: "Garamond", "Times New Roman", serif;
 }
+
+.storefront-theme {
+  --color-bg: #07111f;
+  --color-bg-soft: #0d1729;
+  --color-card: #101a2f;
+  --color-surface-1: #0d1729;
+  --color-surface-2: #101a2f;
+  --color-surface-3: #16233c;
+  --color-text: #e8f0ff;
+  --color-text-primary: #e8f0ff;
+  --color-text-secondary: #b8c7de;
+  --color-muted: #8ea0bf;
+  --color-text-muted: #8ea0bf;
+  --color-line: rgba(163, 185, 220, 0.14);
+  --color-line-strong: rgba(163, 185, 220, 0.28);
+  --color-accent: #68b3ff;
+  --color-accent-hover: #8ac4ff;
+  --color-accent-soft: rgba(104, 179, 255, 0.14);
+  --color-success-bg: rgba(37, 198, 124, 0.14);
+  --color-success-text: #89e3b5;
+  --color-warning-bg: rgba(255, 196, 92, 0.14);
+  --color-warning-text: #ffd27d;
+  --color-danger-bg: rgba(255, 116, 143, 0.14);
+  --color-danger-text: #ff9ab0;
+  background:
+    radial-gradient(circle at top left, rgba(104, 179, 255, 0.15), transparent 28%),
+    radial-gradient(circle at 88% 4%, rgba(121, 151, 255, 0.12), transparent 24%),
+    linear-gradient(180deg, #07111f 0%, #091221 42%, #0b1424 100%);
+  color: var(--color-text);
+  font-family:
+    "IBM Plex Sans",
+    "Aptos",
+    "Segoe UI",
+    "Helvetica Neue",
+    sans-serif;
+}
+
+.storefront-theme .font-display {
+  font-family:
+    "IBM Plex Sans",
+    "Aptos",
+    "Segoe UI",
+    "Helvetica Neue",
+    sans-serif;
+  letter-spacing: -0.03em;
+}

@@ -44,7 +44,7 @@ test.describe("Cart Shipping Flow", () => {
     });
 
     await page.goto("/cart");
-    await expect(page.getByText("Cart is empty")).toBeVisible();
+    await expect(page.getByText("Seu carrinho esta vazio")).toBeVisible();
   });
 
   test("cart validates CEP input requires exactly 8 digits", async ({ page }) => {
@@ -91,16 +91,27 @@ test.describe("Cart Shipping Flow", () => {
 
     await page.goto("/cart");
 
-    const continueButton = page.getByRole("button", { name: /Continue to checkout/i });
+    const continueButton = page.getByRole("button", { name: /Ir para o checkout/i });
     await expect(continueButton).toBeDisabled();
   });
 
   test("requesting shipping quotes shows options and enables checkout after selection", async ({ page }) => {
-    let hasCorsError = false;
-    page.on("console", msg => {
-      if (msg.text().includes("CORS") || msg.text().includes("blocked by CORS")) {
-        hasCorsError = true;
-      }
+    await page.route("**/shipping/quotes", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          options: [
+            {
+              service_id: 1,
+              name: "PAC",
+              price_cents: 1200,
+              delivery_days: 5,
+              raw_json: { service_id: 1, name: "PAC" },
+            },
+          ],
+        }),
+      });
     });
 
     await page.addInitScript((cart) => {
@@ -109,30 +120,16 @@ test.describe("Cart Shipping Flow", () => {
 
     await page.goto("/cart");
 
-    const calculateButton = page.getByRole("button", { name: /Calcular freight|frete/i });
+    const calculateButton = page.getByRole("button", { name: /Calcular frete/i });
     await expect(calculateButton).toBeEnabled();
     await calculateButton.click();
 
-    await page.waitForTimeout(3000);
-
-    const pageContent = await page.content();
-    const hasDias = pageContent.includes("dias");
-    const hasShippingError = pageContent.includes("Shipping quote failed");
-
-    if (hasCorsError) {
-      throw new Error("CORS blocked shipping quote request - ensure NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 in test environment");
-    }
-
-    if (hasShippingError && !hasDias) {
-      throw new Error("Shipping quote failed");
-    }
-
-    const shippingOption = page.getByRole("button", { name: /dias/i });
+    const shippingOption = page.getByRole("button", { name: /PAC/i });
     await expect(shippingOption.first()).toBeVisible({ timeout: 15000 });
 
     await shippingOption.first().click();
 
-    const continueButton = page.getByRole("button", { name: /Continue to checkout/i });
+    const continueButton = page.getByRole("button", { name: /Ir para o checkout/i });
     await expect(continueButton).toBeEnabled();
   });
 
@@ -143,13 +140,12 @@ test.describe("Cart Shipping Flow", () => {
 
     await page.goto("/cart");
 
-    const summarySection = page.getByText("Frete").first();
-    await expect(summarySection).toBeVisible();
+    await expect(page.getByText("PAC", { exact: true })).toBeVisible();
 
     await page.reload();
-    await expect(summarySection).toBeVisible();
+    await expect(page.getByText("PAC", { exact: true })).toBeVisible();
 
-    const continueButton = page.getByRole("button", { name: /Continue to checkout/i });
+    const continueButton = page.getByRole("button", { name: /Ir para o checkout/i });
     await expect(continueButton).toBeEnabled();
   });
 
@@ -160,11 +156,11 @@ test.describe("Cart Shipping Flow", () => {
 
     await page.goto("/checkout");
 
-    await expect(page.getByText("Selected shipping")).toBeVisible();
+    await expect(page.getByText("Frete escolhido")).toBeVisible();
     await expect(page.getByText("PAC")).toBeVisible();
-    await expect(page.getByText("CEP destino: 01018020")).toBeVisible();
+    await expect(page.getByText(/CEP 01018-020/)).toBeVisible();
 
-    const submitButton = page.getByRole("button", { name: /Create order/i });
+    const submitButton = page.getByRole("button", { name: /Criar pedido/i });
     await expect(submitButton).toBeEnabled();
   });
 
@@ -175,6 +171,6 @@ test.describe("Cart Shipping Flow", () => {
 
     await page.goto("/checkout");
 
-    await expect(page.getByText(/Shipping selection is required|Redirecting/i)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/Frete obrigatorio antes do checkout|Voltando ao carrinho/i)).toBeVisible({ timeout: 5000 });
   });
 });

@@ -19,23 +19,28 @@ export function AddedToCartToast({ productTitle, sku, onClose }: AddedToCartToas
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-6 right-6 z-50 flex w-full max-w-xs flex-col gap-3 rounded-2xl border border-green-200 bg-white p-4 shadow-[0_12px_32px_rgba(0,0,0,0.14)] animate-[fadeSlideUp_0.3s_ease]"
+      className="fixed bottom-6 right-6 z-50 flex w-full max-w-sm flex-col gap-4 rounded-[24px] border border-[var(--color-line)] bg-[rgba(9,18,33,0.96)] p-4 text-[var(--color-text-primary)] shadow-[0_18px_40px_rgba(0,0,0,0.34)] backdrop-blur animate-[fadeSlideUp_0.3s_ease]"
     >
       <div className="flex items-start gap-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-600 text-lg">
-          ✓
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--color-success-text)]/20 bg-[var(--color-success-bg)] text-[var(--color-success-text)] text-lg">
+          +
         </span>
         <div className="min-w-0">
-          <p className="font-semibold text-slate-900 text-sm leading-snug">Produto adicionado!</p>
-          <p className="text-xs text-slate-500 mt-0.5 truncate">
-            {productTitle} — {sku}
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--color-accent)]">
+            Carrinho atualizado
+          </p>
+          <p className="mt-1 text-sm font-semibold leading-snug text-[var(--color-text-primary)]">
+            Produto adicionado ao carrinho
+          </p>
+          <p className="mt-1 truncate text-xs text-[var(--color-text-secondary)]">
+            {productTitle} · {sku}
           </p>
         </div>
         <button
           type="button"
           onClick={onClose}
           aria-label="Fechar notificação"
-          className="ml-auto text-slate-400 hover:text-slate-600 transition text-lg leading-none"
+          className="ml-auto text-[var(--color-text-muted)] transition hover:text-[var(--color-text-primary)] text-lg leading-none"
         >
           ×
         </button>
@@ -43,16 +48,16 @@ export function AddedToCartToast({ productTitle, sku, onClose }: AddedToCartToas
       <div className="flex gap-2">
         <Link
           href="/cart"
-          className="flex-1 rounded-lg bg-[var(--color-accent)] px-3 py-2 text-center text-xs font-semibold text-[var(--color-accent-ink)] transition hover:brightness-95"
+          className="flex-1 rounded-xl bg-[var(--color-accent)] px-3 py-2 text-center text-xs font-semibold text-[#04101f] transition hover:bg-[var(--color-accent-hover)]"
         >
           Ver carrinho
         </Link>
         <button
           type="button"
           onClick={onClose}
-          className="flex-1 rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400"
+          className="flex-1 rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-2 text-xs font-semibold text-[var(--color-text-primary)] transition hover:border-[var(--color-line-strong)]"
         >
-          Continuar comprando
+          Continuar vendo
         </button>
       </div>
     </div>

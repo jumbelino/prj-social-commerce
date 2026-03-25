@@ -1,7 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const port = 3000;
+const port = Number(process.env.PLAYWRIGHT_FRONTEND_PORT ?? 3000);
 const apiPort = 8000;
+const reuseExistingServer = process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === "1";
 
 function getHostnameFromUrl(url: string | undefined): string {
   if (!url || url === "") return "localhost";
@@ -42,10 +43,10 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev -- --hostname localhost --port 3000",
+    command: `npm run dev -- --hostname localhost --port ${port}`,
     url: `${baseURL}/`,
     timeout: 120_000,
-    reuseExistingServer: true,
+    reuseExistingServer,
     env: {
       NEXTAUTH_URL: baseURL,
       NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET ?? "dev-secret",

@@ -10,40 +10,59 @@ export function Header() {
   const closeMenu = () => setIsMenuOpen(false);
 
   return (
-    <header className="sticky top-4 z-20 mt-4 rounded-2xl border border-black/10 bg-white/90 px-4 py-3 shadow-[0_10px_30px_rgba(11,18,32,0.09)] backdrop-blur sm:px-5">
+    <header className="sticky top-3 z-20 mt-4 rounded-[22px] border border-[var(--color-line)] bg-[rgba(9,18,33,0.82)] px-4 py-3 shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur sm:px-5">
       <div className="flex items-center justify-between gap-3">
-        <Link href="/" className="font-display text-xl leading-none tracking-tight text-slate-900">
-          Local Market
+        <Link href="/" className="flex flex-col" onClick={closeMenu}>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[var(--color-accent)]">
+            Loja
+          </span>
+          <span className="font-display text-xl leading-none tracking-tight text-[var(--color-text-primary)] sm:text-2xl">
+            Aurea Shirts
+          </span>
         </Link>
         
-        <nav className="hidden items-center gap-4 text-sm font-semibold text-slate-700 sm:flex">
-          <Link href="/" className="transition hover:text-slate-950">
-            Products
+        <nav className="hidden items-center gap-3 text-sm font-semibold text-[var(--color-text-secondary)] sm:flex">
+          <Link
+            href="/"
+            className="rounded-full border border-transparent px-3 py-2 transition hover:border-[var(--color-line)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-primary)]"
+          >
+            Catalogo
           </Link>
-          <Link href="/cart" className="transition hover:text-slate-950">
+          <Link
+            href="/cart"
+            className="rounded-full border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-2 text-[var(--color-text-primary)] transition hover:border-[var(--color-line-strong)] hover:bg-[var(--color-surface-3)]"
+          >
             <CartLink />
           </Link>
         </nav>
 
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className="flex h-8 w-8 flex-col items-center justify-center gap-1.5 rounded-lg border border-slate-200 sm:hidden"
-          aria-label="Toggle menu"
+          className="flex h-10 w-10 flex-col items-center justify-center gap-1.5 rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] text-[var(--color-text-primary)] sm:hidden"
+          aria-label={isMenuOpen ? "Fechar menu" : "Abrir menu"}
         >
-          <span className={`h-0.5 w-5 bg-slate-700 transition-transform ${isMenuOpen ? "rotate-45 translate-y-1" : ""}`} />
-          <span className={`h-0.5 w-5 bg-slate-700 transition-opacity ${isMenuOpen ? "opacity-0" : ""}`} />
-          <span className={`h-0.5 w-5 bg-slate-700 transition-transform ${isMenuOpen ? "-rotate-45 -translate-y-1" : ""}`} />
+          <span className={`h-0.5 w-5 bg-current transition-transform ${isMenuOpen ? "rotate-45 translate-y-1" : ""}`} />
+          <span className={`h-0.5 w-5 bg-current transition-opacity ${isMenuOpen ? "opacity-0" : ""}`} />
+          <span className={`h-0.5 w-5 bg-current transition-transform ${isMenuOpen ? "-rotate-45 -translate-y-1" : ""}`} />
         </button>
       </div>
 
       {isMenuOpen && (
-        <div className="absolute left-0 right-0 top-full mt-2 rounded-2xl border border-black/10 bg-white/95 p-4 shadow-lg backdrop-blur sm:hidden">
-          <nav className="flex flex-col gap-3 text-sm font-semibold text-slate-700">
-            <Link href="/" onClick={closeMenu} className="rounded-lg px-3 py-2 transition hover:bg-slate-100">
-              Products
+        <div className="absolute left-0 right-0 top-full mt-2 rounded-[22px] border border-[var(--color-line)] bg-[rgba(9,18,33,0.96)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.3)] backdrop-blur sm:hidden">
+          <nav className="flex flex-col gap-3 text-sm font-semibold text-[var(--color-text-primary)]">
+            <Link
+              href="/"
+              onClick={closeMenu}
+              className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-3 transition hover:border-[var(--color-line-strong)]"
+            >
+              Catalogo
             </Link>
-            <Link href="/cart" onClick={closeMenu} className="rounded-lg px-3 py-2 transition hover:bg-slate-100">
-              Cart
+            <Link
+              href="/cart"
+              onClick={closeMenu}
+              className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-3 transition hover:border-[var(--color-line-strong)]"
+            >
+              <CartLink />
             </Link>
           </nav>
         </div>

@@ -5,7 +5,14 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { useCart } from "@/components/cart-provider";
-import { ErrorPanel } from "@/components/error-panel";
+import { PublicHero } from "@/components/storefront/PublicShell";
+import {
+  PurchaseSectionCard,
+  PurchaseSummaryCard,
+  StatusCallout,
+  SummaryRow,
+} from "@/components/storefront/PurchaseFlow";
+import { EmptyState } from "@/components/storefront/StateBlocks";
 import {
   ApiRequestError,
   createMercadoPagoPreference,
@@ -20,8 +27,15 @@ import { formatCents } from "@/lib/currency";
 type CheckoutForm = {
   customerName: string;
   customerEmail: string;
-  customerPhone: string; // digits only, without +55
+  customerPhone: string;
 };
+
+type SubmissionStage =
+  | "idle"
+  | "creating_order"
+  | "creating_payment"
+  | "redirecting"
+  | "pix_ready";
 
 const PUBLIC_APP_BASE_URL = process.env.NEXT_PUBLIC_APP_BASE_URL?.trim() ?? "";
 
@@ -29,7 +43,7 @@ function messageFromError(error: unknown): string {
   if (error instanceof ApiRequestError) {
     return error.message;
   }
-  return "Unexpected request failure.";
+  return "Falha inesperada ao processar o checkout.";
 }
 
 function resolveCheckoutResultBaseUrl(): string | undefined {
@@ -43,6 +57,16 @@ function resolveCheckoutResultBaseUrl(): string | undefined {
   return `${window.location.origin}/checkout/result`;
 }
 
+function formatPostalCode(value: string | null): string {
+  if (!value) {
+    return "-";
+  }
+  if (value.length !== 8) {
+    return value;
+  }
+  return `${value.slice(0, 5)}-${value.slice(5)}`;
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, totalCents, selectedShipping, destinationPostalCode } = useCart();
@@ -54,6 +78,7 @@ export default function CheckoutPage() {
   });
   const [paymentMethod, setPaymentMethod] = useState<"checkout_pro" | "pix">("checkout_pro");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionStage, setSubmissionStage] = useState<SubmissionStage>("idle");
   const [order, setOrder] = useState<OrderRead | null>(null);
   const [paymentPreference, setPaymentPreference] = useState<MercadoPagoPreferenceResponse | null>(null);
   const [pixPayment, setPixPayment] = useState<MercadoPagoPixPaymentResponse | null>(null);
@@ -87,6 +112,41 @@ export default function CheckoutPage() {
     [destinationPostalCodeDigits.length, isRedirectingToCart, isSubmitting, items.length, paymentMethod, selectedShipping],
   );
 
+  const submissionCallout = useMemo(() => {
+    if (submissionStage === "creating_order") {
+      return {
+        tone: "neutral" as const,
+        title: "Criando pedido",
+        message: "Registrando itens, cliente e frete antes de iniciar o pagamento.",
+      };
+    }
+    if (submissionStage === "creating_payment") {
+      return {
+        tone: "neutral" as const,
+        title: "Iniciando pagamento",
+        message:
+          paymentMethod === "checkout_pro"
+            ? "Gerando a preferencia do Mercado Pago para abrir o checkout."
+            : "Gerando os dados do PIX para concluir o pagamento.",
+      };
+    }
+    if (submissionStage === "redirecting") {
+      return {
+        tone: "success" as const,
+        title: "Redirecionando para o Mercado Pago",
+        message: "A pagina de pagamento esta sendo aberta nesta aba. Se nao carregar, use o link manual abaixo.",
+      };
+    }
+    if (submissionStage === "pix_ready") {
+      return {
+        tone: "success" as const,
+        title: "Pedido criado e PIX pronto",
+        message: "Os dados do pagamento ja foram gerados. Use o QR Code ou o codigo copia e cola para concluir.",
+      };
+    }
+    return null;
+  }, [paymentMethod, submissionStage]);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canSubmit) {
@@ -94,6 +154,7 @@ export default function CheckoutPage() {
     }
 
     setIsSubmitting(true);
+    setSubmissionStage("creating_order");
     setOrderError(null);
     setPaymentError(null);
     setOrder(null);
@@ -102,7 +163,8 @@ export default function CheckoutPage() {
     setIsRedirecting(false);
 
     if (!selectedShipping || destinationPostalCodeDigits.length !== 8) {
-      setOrderError("Shipping selection is required. Return to cart and recalculate shipping.");
+      setOrderError("Selecione um frete valido no carrinho antes de continuar.");
+      setSubmissionStage("idle");
       setIsSubmitting(false);
       return;
     }
@@ -128,6 +190,7 @@ export default function CheckoutPage() {
       });
 
       setOrder(createdOrder);
+      setSubmissionStage("creating_payment");
 
       try {
         if (paymentMethod === "checkout_pro") {
@@ -135,277 +198,425 @@ export default function CheckoutPage() {
           const preferenceResponse = await createMercadoPagoPreference(createdOrder.id, returnUrlBase);
           setPaymentPreference(preferenceResponse);
           setIsRedirecting(true);
+          setSubmissionStage("redirecting");
           window.setTimeout(() => {
             window.location.assign(preferenceResponse.checkout_url);
           }, 150);
-        } else if (paymentMethod === "pix") {
+        } else {
           const pixResponse = await createMercadoPagoPayment(createdOrder.id);
           setPixPayment(pixResponse);
+          setSubmissionStage("pix_ready");
         }
       } catch (error) {
         setPaymentError(messageFromError(error));
+        setSubmissionStage("idle");
       }
     } catch (error) {
       setOrderError(messageFromError(error));
+      setSubmissionStage("idle");
     } finally {
       setIsSubmitting(false);
     }
   }
 
+  const submitLabel =
+    submissionStage === "creating_order"
+      ? "Criando pedido..."
+      : submissionStage === "creating_payment"
+        ? paymentMethod === "checkout_pro"
+          ? "Iniciando pagamento..."
+          : "Gerando PIX..."
+        : paymentMethod === "checkout_pro"
+          ? "Criar pedido e ir para o Mercado Pago"
+          : "Criar pedido com PIX";
+
   return (
-    <div className="space-y-5">
-      <section className="rounded-3xl border border-[var(--color-line)] bg-[var(--color-card)] px-5 py-7 shadow-[0_14px_36px_rgba(18,30,40,0.08)] sm:px-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Checkout</p>
-        <h1 className="mt-3 font-display text-4xl leading-tight text-slate-900">Create order and request payment</h1>
-        <p className="mt-2 max-w-2xl text-base text-[var(--color-muted)]">
-          Confirm customer details, shipping, and totals before proceeding to payment. The order will only be finalized after Mercado Pago confirms the payment.
-        </p>
-      </section>
+    <div className="space-y-8">
+      <PublicHero
+        eyebrow="Checkout"
+        title="Feche o pedido com dados claros, resumo confiavel e proxima acao explicita."
+        description="A jornada de fechamento agora reforca cliente, frete, pagamento e total final sem cara de tela operacional crua."
+        actions={
+          <>
+            <Link
+              href="/cart"
+              className="inline-flex items-center justify-center rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] px-4 py-2.5 text-sm font-semibold text-[var(--color-text-primary)] transition hover:border-[var(--color-line-strong)] hover:bg-[var(--color-surface-3)]"
+            >
+              Voltar ao carrinho
+            </Link>
+            <div className="inline-flex items-center justify-center rounded-xl border border-[var(--color-line)] px-4 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)]">
+              Total atual {formatCents(totalWithShippingCents)}
+            </div>
+          </>
+        }
+      />
 
       {items.length === 0 && !order ? (
-        <section className="rounded-2xl border border-dashed border-[var(--color-line)] bg-white/70 px-5 py-8 text-center text-[var(--color-muted)]">
-          Your cart is empty. <Link href="/" className="font-semibold text-slate-900 underline">Add products first</Link>.
-        </section>
+        <EmptyState
+          title="Seu carrinho esta vazio"
+          message="Nao ha itens prontos para gerar um pedido. Volte ao catalogo ou retorne ao carrinho para revisar a compra."
+          action={
+            <Link
+              href="/"
+              className="rounded-xl bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[#04101f] transition hover:bg-[var(--color-accent-hover)]"
+            >
+              Ir para a loja
+            </Link>
+          }
+        />
       ) : null}
 
-      {items.length > 0 && selectedShipping === null ? (
-        <section className="rounded-2xl border border-dashed border-[var(--color-line)] bg-white/70 px-5 py-8 text-center text-[var(--color-muted)]">
-          {isRedirectingToCart
-            ? "Shipping selection missing. Redirecting to cart..."
-            : "Shipping selection is required before checkout."}{" "}
-          <Link href="/cart" className="font-semibold text-slate-900 underline">
-            Return to cart
-          </Link>
-          .
-        </section>
+      {items.length > 0 && selectedShipping === null && !order ? (
+        <StatusCallout
+          tone="warning"
+          title={isRedirectingToCart ? "Voltando ao carrinho" : "Frete obrigatorio antes do checkout"}
+          message={
+            isRedirectingToCart
+              ? "O checkout depende de uma opcao de frete selecionada. Estamos retornando voce ao carrinho."
+              : "Selecione um frete no carrinho antes de preencher os dados do cliente e iniciar o pagamento."
+          }
+          action={
+            <Link
+              href="/cart"
+              className="inline-flex rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] px-4 py-2 text-sm font-semibold text-[var(--color-text-primary)] transition hover:border-[var(--color-line-strong)]"
+            >
+              Voltar ao carrinho
+            </Link>
+          }
+        />
       ) : null}
 
-      {orderError ? <ErrorPanel title="Order creation failed" message={orderError} /> : null}
-
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4 rounded-2xl border border-[var(--color-line)] bg-[var(--color-card)] p-5 shadow-[0_10px_26px_rgba(18,30,40,0.07)]"
-        >
-          <label className="block text-sm font-semibold text-slate-700" htmlFor="customerName">
-            Name
-            <input
-              id="customerName"
-              className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm"
-              value={form.customerName}
-              onChange={(event) => setForm((current) => ({ ...current, customerName: event.target.value }))}
-              placeholder="Customer name"
-            />
-          </label>
-          <label className="block text-sm font-semibold text-slate-700" htmlFor="customerEmail">
-            Email
-            <input
-              id="customerEmail"
-              type="email"
-              required
-              className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm"
-              value={form.customerEmail}
-              onChange={(event) => setForm((current) => ({ ...current, customerEmail: event.target.value }))}
-              placeholder="customer@email.com"
-            />
-          </label>
-          <label className="block text-sm font-semibold text-slate-700" htmlFor="customerPhone">
-            Telefone
-            <div className="mt-1 flex rounded-lg border border-[var(--color-line)] bg-white overflow-hidden">
-              <span className="flex items-center px-3 py-2 text-sm text-slate-500 bg-slate-50 border-r border-[var(--color-line)] select-none">
-                +55
-              </span>
-              <input
-                id="customerPhone"
-                className="flex-1 px-3 py-2 text-sm bg-transparent outline-none"
-                value={form.customerPhone}
-                onChange={(event) => setForm((current) => ({ ...current, customerPhone: event.target.value }))}
-                placeholder="(11) 99999-9999"
-                type="tel"
-              />
-            </div>
-          </label>
-
-          <fieldset className="space-y-2">
-            <legend className="text-sm font-semibold text-slate-700">Forma de pagamento</legend>
-            <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-[var(--color-line)] bg-white px-3 py-2.5 text-sm text-slate-800 transition hover:border-slate-300">
-              <input
-                type="radio"
-                name="paymentMethod"
-                value="checkout_pro"
-                checked={paymentMethod === "checkout_pro"}
-                onChange={() => setPaymentMethod("checkout_pro")}
-              />
-              <svg viewBox="0 0 64 18" className="h-4 fill-[#009ee3]" aria-hidden="true"><path d="M9.2 0C4.1 0 0 4.1 0 9.2s4.1 9.2 9.2 9.2 9.2-4.1 9.2-9.2S14.3 0 9.2 0zm0 14.7c-3 0-5.5-2.5-5.5-5.5s2.5-5.5 5.5-5.5 5.5 2.5 5.5 5.5-2.4 5.5-5.5 5.5zM22 5.3h3.7v9.4H22zm1.8-4.3c1.2 0 2.2 1 2.2 2.2s-1 2.2-2.2 2.2-2.2-1-2.2-2.2 1-2.2 2.2-2.2zm12.6 4c-1.2 0-2.2.5-2.9 1.3V5.3H30v9.4h3.5v-4.5c0-1.3.7-2 1.8-2 1.1 0 1.7.7 1.7 2v4.5h3.5V9.7c0-2.9-1.7-4.7-4.1-4.7zm15.7 4.8c0-2.8-2.3-5-5.2-5s-5.2 2.2-5.2 5 2.3 5 5.2 5 5.2-2.2 5.2-5zm-6.8 0c0-1 .7-1.7 1.6-1.7s1.6.7 1.6 1.7-.7 1.7-1.6 1.7-1.6-.7-1.6-1.7z"/></svg>
-              <span className="font-medium">Mercado Pago</span>
-            </label>
-            <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-[var(--color-line)] bg-white px-3 py-2.5 text-sm text-slate-800 transition hover:border-slate-300">
-              <input
-                type="radio"
-                name="paymentMethod"
-                value="pix"
-                checked={paymentMethod === "pix"}
-                onChange={() => setPaymentMethod("pix")}
-              />
-              <svg viewBox="0 0 512 512" className="h-4 fill-[#32bcad]" aria-hidden="true"><path d="M392.5 296.4L297.6 392c-23.5 23.5-61.7 23.5-85.2 0l-95.5-95.5c-6-6-15.6-6-21.6 0l-32 32c-6 6-6 15.6 0 21.6l95.5 95.5c46.9 46.9 123.1 46.9 170 0l94.8-94.8c6-6 6-15.6 0-21.6l-32-32c-6-5.9-15.7-5.9-21.6-.7zm-95.3-176l-94.8 94.8c-6 6-6 15.6 0 21.6l32 32c6 6 15.6 6 21.6 0l95.5-95.5c23.5-23.5 61.7-23.5 85.2 0l95.5 95.5c6 6 15.6 6 21.6 0l32-32c6-6 6-15.6 0-21.6l-95.5-95.5c-47-47-123.2-47-170.1.7z"/></svg>
-              <span className="font-medium">PIX via Mercado Pago</span>
-            </label>
-          </fieldset>
-
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-accent-ink)] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-55"
-          >
-            {isSubmitting ? "Processing..." : paymentMethod === "checkout_pro" ? "Create order and go to payment" : "Create order with PIX"}
-          </button>
-        </form>
-
-        <aside className="rounded-2xl border border-[var(--color-line)] bg-white/85 p-5">
-          <h2 className="font-display text-2xl text-slate-900">Order summary</h2>
-          <ul className="mt-3 space-y-2 text-sm text-slate-700">
-            {items.map((item) => (
-              <li key={item.variantId} className="flex items-center justify-between gap-3">
-                <span>{item.sku} x {item.quantity}</span>
-                <span className="font-semibold">{formatCents(item.quantity * item.unitPriceCents)}</span>
-              </li>
-            ))}
-          </ul>
-
-          <div className="mt-4 rounded-xl border border-[var(--color-line)] bg-white p-3 text-sm text-slate-700">
-            <p className="font-semibold text-slate-900">Selected shipping</p>
-            {selectedShipping ? (
-              <>
-                <p className="mt-1">{selectedShipping.serviceName}</p>
-                <p className="text-[var(--color-muted)]">{selectedShipping.deliveryDays} dias</p>
-                <p className="text-[var(--color-muted)]">CEP destino: {destinationPostalCodeDigits}</p>
-                <p className="mt-1 font-semibold text-slate-900">{formatCents(selectedShipping.priceCents)}</p>
-              </>
-            ) : (
-              <p className="mt-1 text-[var(--color-muted)]">No shipping selected.</p>
-            )}
-          </div>
-
-          <dl className="mt-4 space-y-2 text-sm text-slate-700">
-            <div className="flex items-center justify-between gap-3">
-              <dt>Subtotal</dt>
-              <dd className="font-semibold text-slate-900">{formatCents(totalCents)}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <dt>Shipping</dt>
-              <dd className="font-semibold text-slate-900">{formatCents(shippingCents)}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-3 border-t border-[var(--color-line)] pt-2 text-base">
-              <dt className="font-semibold text-slate-900">Total</dt>
-              <dd className="font-semibold text-slate-900">{formatCents(totalWithShippingCents)}</dd>
-            </div>
-          </dl>
-        </aside>
-      </section>
-
-      {order ? (
-        <section className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-card)] p-5 shadow-[0_10px_26px_rgba(18,30,40,0.07)]">
-          <h2 className="font-display text-3xl text-slate-900">Order created</h2>
-          <p className="mt-2 text-sm text-slate-700">
-            Order ID: <span className="font-semibold">{order.id}</span>
-          </p>
-          <p className="text-sm text-slate-700">
-            Status: <span className="font-semibold">{order.status}</span>
-          </p>
-          <p className="text-sm text-slate-700">
-            Total: <span className="font-semibold">{formatCents(order.total_cents)}</span>
-          </p>
-          {order.expires_at ? (
-            <p className="text-sm text-slate-700">
-              Payment deadline: <span className="font-semibold">{new Date(order.expires_at).toLocaleString("pt-BR")}</span>
-            </p>
-          ) : null}
-        </section>
+      {submissionCallout ? (
+        <StatusCallout
+          tone={submissionCallout.tone}
+          title={submissionCallout.title}
+          message={submissionCallout.message}
+        />
       ) : null}
 
-      {paymentError ? <ErrorPanel title="Payment request failed" message={paymentError} /> : null}
-
-      {paymentPreference ? (
-        <section className="space-y-3 rounded-2xl border border-[var(--color-line)] bg-[var(--color-card)] p-5 shadow-[0_10px_26px_rgba(18,30,40,0.07)]">
-          <h2 className="font-display text-3xl text-slate-900">Redirecting to payment</h2>
-          <p className="text-sm text-slate-700">
-            Preference ID: <span className="font-semibold">{paymentPreference.preference_id}</span>
-          </p>
-          <p className="text-sm text-slate-700">
-            {paymentPreference.is_sandbox
-              ? "Mercado Pago sandbox is being opened in this tab."
-              : isRedirecting
-                ? "Opening Mercado Pago in this tab..."
-                : "Use the link below to continue payment."}
-          </p>
-          <a
-            href={paymentPreference.checkout_url}
-            className="inline-block break-all text-sm font-semibold text-[var(--color-accent)] underline"
-          >
-            {paymentPreference.checkout_url}
-          </a>
-          <p className="text-sm text-slate-600">
-            Your cart stays intact until payment confirmation. After returning, the application will sync the payment status and show the final result explicitly.
-          </p>
-        </section>
+      {orderError ? (
+        <StatusCallout tone="danger" title="Falha ao criar pedido" message={orderError} />
       ) : null}
 
-      {pixPayment ? (
-        <section className="space-y-4 rounded-2xl border border-[var(--color-line)] bg-[var(--color-card)] p-5 shadow-[0_10px_26px_rgba(18,30,40,0.07)]">
-          <h2 className="font-display text-3xl text-slate-900">PIX Payment</h2>
-          <div className="rounded-lg border border-[var(--color-line)] bg-white p-4">
-            <p className="text-sm text-slate-700">
-              Payment ID: <span className="font-semibold">{pixPayment.payment_id}</span>
-            </p>
-            <p className="text-sm text-slate-700">
-              Status: <span className="font-semibold">{pixPayment.status}</span>
-            </p>
-            {pixPayment.external_reference ? (
-              <p className="text-sm text-slate-700">
-                Order Reference: <span className="font-semibold">{pixPayment.external_reference}</span>
-              </p>
-            ) : null}
-          </div>
+      {paymentError ? (
+        <StatusCallout tone="danger" title="Falha ao iniciar pagamento" message={paymentError} />
+      ) : null}
 
-          {pixPayment.qr_code ? (
-            <div className="rounded-lg border border-[var(--color-line)] bg-white p-4">
-              <p className="mb-2 text-sm font-semibold text-slate-700">PIX Copy/Paste Code:</p>
-              <code className="block break-all rounded bg-slate-50 p-3 text-xs font-mono text-slate-800">
-                {pixPayment.qr_code}
-              </code>
-            </div>
-          ) : null}
+      <section className="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_360px] lg:items-start">
+        <div className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <PurchaseSectionCard
+              eyebrow="Cliente"
+              title="Dados para identificar o pedido"
+              description="Preencha os dados principais do comprador antes de seguir para o pagamento."
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block text-sm font-semibold text-[var(--color-text-primary)] md:col-span-2" htmlFor="customerName">
+                  Nome
+                  <input
+                    id="customerName"
+                    className="mt-2 w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-3)] px-4 py-3 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-line-strong)]"
+                    value={form.customerName}
+                    onChange={(event) => setForm((current) => ({ ...current, customerName: event.target.value }))}
+                    placeholder="Como esse cliente deve aparecer no pedido"
+                  />
+                </label>
 
-          {pixPayment.qr_code_base64 ? (
-            <div className="rounded-lg border border-[var(--color-line)] bg-white p-4">
-              <p className="mb-2 text-sm font-semibold text-slate-700">PIX QR Code:</p>
-              <img
-                src={`data:image/png;base64,${pixPayment.qr_code_base64}`}
-                alt="PIX QR Code"
-                className="max-w-[200px] rounded"
-              />
-            </div>
-          ) : null}
+                <label className="block text-sm font-semibold text-[var(--color-text-primary)]" htmlFor="customerEmail">
+                  Email
+                  <input
+                    id="customerEmail"
+                    type="email"
+                    required
+                    className="mt-2 w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-3)] px-4 py-3 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-line-strong)]"
+                    value={form.customerEmail}
+                    onChange={(event) => setForm((current) => ({ ...current, customerEmail: event.target.value }))}
+                    placeholder="cliente@email.com"
+                  />
+                </label>
 
-          {pixPayment.ticket_url ? (
-            <div className="rounded-lg border border-[var(--color-line)] bg-white p-4">
-              <p className="mb-2 text-sm font-semibold text-slate-700">Boleto/Payment Ticket:</p>
-              <a
-                href={pixPayment.ticket_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm font-semibold text-[var(--color-accent)] underline"
+                <label className="block text-sm font-semibold text-[var(--color-text-primary)]" htmlFor="customerPhone">
+                  Telefone
+                  <div className="mt-2 flex overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-3)]">
+                    <span className="flex items-center border-r border-[var(--color-line)] px-4 text-sm text-[var(--color-text-secondary)]">
+                      +55
+                    </span>
+                    <input
+                      id="customerPhone"
+                      className="flex-1 bg-transparent px-4 py-3 text-sm text-[var(--color-text-primary)] outline-none"
+                      value={form.customerPhone}
+                      onChange={(event) => setForm((current) => ({ ...current, customerPhone: event.target.value }))}
+                      placeholder="11 99999-9999"
+                      type="tel"
+                    />
+                  </div>
+                </label>
+              </div>
+            </PurchaseSectionCard>
+
+            <PurchaseSectionCard
+              eyebrow="Pagamento"
+              title="Escolha como concluir a compra"
+              description="O pedido so fica concluido depois que o Mercado Pago confirma o pagamento."
+            >
+              <fieldset className="space-y-3">
+                <legend className="sr-only">Forma de pagamento</legend>
+                <label
+                  className={`flex cursor-pointer items-start gap-3 rounded-[22px] border px-4 py-4 transition ${
+                    paymentMethod === "checkout_pro"
+                      ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)]"
+                      : "border-[var(--color-line)] bg-[var(--color-surface-1)]/88 hover:border-[var(--color-line-strong)]"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="checkout_pro"
+                    checked={paymentMethod === "checkout_pro"}
+                    onChange={() => setPaymentMethod("checkout_pro")}
+                    className="mt-1"
+                  />
+                  <span className="space-y-1">
+                    <span className="block font-semibold text-[var(--color-text-primary)]">Checkout Pro do Mercado Pago</span>
+                    <span className="block text-sm leading-6 text-[var(--color-text-secondary)]">
+                      Ideal para redirecionar o cliente e concluir o pagamento no ambiente do Mercado Pago.
+                    </span>
+                  </span>
+                </label>
+
+                <label
+                  className={`flex cursor-pointer items-start gap-3 rounded-[22px] border px-4 py-4 transition ${
+                    paymentMethod === "pix"
+                      ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)]"
+                      : "border-[var(--color-line)] bg-[var(--color-surface-1)]/88 hover:border-[var(--color-line-strong)]"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="pix"
+                    checked={paymentMethod === "pix"}
+                    onChange={() => setPaymentMethod("pix")}
+                    className="mt-1"
+                  />
+                  <span className="space-y-1">
+                    <span className="block font-semibold text-[var(--color-text-primary)]">PIX via Mercado Pago</span>
+                    <span className="block text-sm leading-6 text-[var(--color-text-secondary)]">
+                      Gera QR Code e codigo copia e cola para o cliente pagar sem sair da jornada da loja.
+                    </span>
+                  </span>
+                </label>
+              </fieldset>
+
+              <div className="mt-5 rounded-[22px] border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4 text-sm text-[var(--color-text-secondary)]">
+                <p className="font-semibold text-[var(--color-text-primary)]">O que acontece depois do clique</p>
+                <p className="mt-2 leading-6">
+                  Primeiro criamos o pedido com frete e itens. Depois iniciamos o pagamento no Mercado Pago e mostramos
+                  o estado final no retorno do checkout.
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={!canSubmit}
+                className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-[#04101f] transition hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-45"
               >
-                {pixPayment.ticket_url}
-              </a>
-            </div>
+                {submitLabel}
+              </button>
+            </PurchaseSectionCard>
+          </form>
+
+          {order ? (
+            <PurchaseSectionCard
+              eyebrow="Pedido"
+              title="Pedido criado com sucesso"
+              description="O pedido foi registrado. Agora falta concluir o pagamento ou aguardar a confirmacao."
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-[22px] border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4 text-sm text-[var(--color-text-secondary)]">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--color-text-muted)]">Pedido</p>
+                  <p className="mt-2 font-mono text-sm text-[var(--color-text-primary)]">{order.id}</p>
+                  <p className="mt-2">
+                    Status: <span className="font-semibold text-[var(--color-text-primary)]">{order.status}</span>
+                  </p>
+                  <p>
+                    Total: <span className="font-semibold text-[var(--color-text-primary)]">{formatCents(order.total_cents)}</span>
+                  </p>
+                </div>
+
+                <div className="rounded-[22px] border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4 text-sm text-[var(--color-text-secondary)]">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--color-text-muted)]">Prazo</p>
+                  {order.expires_at ? (
+                    <p className="mt-2 leading-6">
+                      Pagamento ate{" "}
+                      <span className="font-semibold text-[var(--color-text-primary)]">
+                        {new Date(order.expires_at).toLocaleString("pt-BR")}
+                      </span>
+                    </p>
+                  ) : (
+                    <p className="mt-2">O pedido nao informou prazo de expiracao.</p>
+                  )}
+                </div>
+              </div>
+            </PurchaseSectionCard>
           ) : null}
 
-          <p className="text-sm text-slate-600">
-            Complete your payment using one of the methods above. The order remains pending until Mercado Pago confirms it. If the payment fails or expires, stock will be released again.
-          </p>
-        </section>
-      ) : null}
+          {paymentPreference ? (
+            <PurchaseSectionCard
+              eyebrow="Checkout Pro"
+              title="Redirecionando para o Mercado Pago"
+              description="Se a nova aba ou pagina nao abrir automaticamente, use o link manual abaixo."
+            >
+              <div className="space-y-4">
+                <div className="rounded-[22px] border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4 text-sm text-[var(--color-text-secondary)]">
+                  <p>
+                    ID da preferencia:{" "}
+                    <span className="font-semibold text-[var(--color-text-primary)]">
+                      {paymentPreference.preference_id}
+                    </span>
+                  </p>
+                  <p className="mt-2 leading-6">
+                    {paymentPreference.is_sandbox
+                      ? "O checkout sandbox do Mercado Pago esta sendo aberto nesta aba."
+                      : isRedirecting
+                        ? "Abrindo o Checkout Pro do Mercado Pago nesta aba."
+                        : "Use o link abaixo para continuar o pagamento manualmente."}
+                  </p>
+                </div>
+
+                <a
+                  href={paymentPreference.checkout_url}
+                  className="inline-flex w-full items-center justify-center rounded-xl bg-[var(--color-accent)] px-4 py-3 text-sm font-semibold text-[#04101f] transition hover:bg-[var(--color-accent-hover)]"
+                >
+                  Abrir Mercado Pago agora
+                </a>
+
+                <p className="break-all text-xs text-[var(--color-text-muted)]">
+                  {paymentPreference.checkout_url}
+                </p>
+              </div>
+            </PurchaseSectionCard>
+          ) : null}
+
+          {pixPayment ? (
+            <PurchaseSectionCard
+              eyebrow="PIX"
+              title="Dados do pagamento gerados"
+              description="Use o QR Code ou o codigo copia e cola para concluir o pagamento e depois acompanhe o retorno do pedido."
+            >
+              <div className="space-y-4">
+                <div className="rounded-[22px] border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4 text-sm text-[var(--color-text-secondary)]">
+                  <p>
+                    ID do pagamento:{" "}
+                    <span className="font-semibold text-[var(--color-text-primary)]">{pixPayment.payment_id}</span>
+                  </p>
+                  <p className="mt-1">
+                    Status: <span className="font-semibold text-[var(--color-text-primary)]">{pixPayment.status}</span>
+                  </p>
+                  {pixPayment.external_reference ? (
+                    <p className="mt-1">
+                      Pedido:{" "}
+                      <span className="font-semibold text-[var(--color-text-primary)]">
+                        {pixPayment.external_reference}
+                      </span>
+                    </p>
+                  ) : null}
+                </div>
+
+                {pixPayment.qr_code ? (
+                  <div className="rounded-[22px] border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4">
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">Codigo copia e cola</p>
+                    <code className="mt-3 block break-all rounded-2xl bg-[var(--color-surface-3)] p-3 text-xs text-[var(--color-text-secondary)]">
+                      {pixPayment.qr_code}
+                    </code>
+                  </div>
+                ) : null}
+
+                {pixPayment.qr_code_base64 ? (
+                  <div className="rounded-[22px] border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4">
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">QR Code do PIX</p>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`data:image/png;base64,${pixPayment.qr_code_base64}`}
+                      alt="QR Code do PIX"
+                      className="mt-4 max-w-[220px] rounded-2xl border border-[var(--color-line)] bg-white p-2"
+                    />
+                  </div>
+                ) : null}
+
+                {pixPayment.ticket_url ? (
+                  <a
+                    href={pixPayment.ticket_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex w-full items-center justify-center rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)] transition hover:border-[var(--color-line-strong)]"
+                  >
+                    Abrir boleto ou link de pagamento
+                  </a>
+                ) : null}
+              </div>
+            </PurchaseSectionCard>
+          ) : null}
+        </div>
+
+        <div className="space-y-4 lg:sticky lg:top-24">
+          <PurchaseSummaryCard
+            eyebrow="Resumo"
+            title="Pedido que sera enviado"
+            description="Itens, frete e total final reunidos no mesmo bloco para reduzir incerteza antes do pagamento."
+          >
+            <div className="space-y-4">
+              <div className="rounded-[22px] border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4">
+                <ul className="space-y-3">
+                  {items.map((item) => (
+                    <li key={item.variantId} className="flex items-start justify-between gap-4 text-sm">
+                      <span className="min-w-0">
+                        <span className="block font-semibold text-[var(--color-text-primary)]">{item.productTitle}</span>
+                        <span className="mt-1 block text-[var(--color-text-secondary)]">
+                          {item.sku} · {item.quantity} un.
+                        </span>
+                      </span>
+                      <span className="font-semibold text-[var(--color-text-primary)]">
+                        {formatCents(item.quantity * item.unitPriceCents)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="rounded-[22px] border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4 text-sm text-[var(--color-text-secondary)]">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--color-text-muted)]">Frete escolhido</p>
+                {selectedShipping ? (
+                  <>
+                    <p className="mt-2 font-semibold text-[var(--color-text-primary)]">{selectedShipping.serviceName}</p>
+                    <p className="mt-1 leading-6">
+                      {selectedShipping.deliveryDays} dia(s) · CEP {formatPostalCode(destinationPostalCodeDigits)}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-2">Nenhum frete selecionado.</p>
+                )}
+              </div>
+
+              <div className="rounded-[22px] border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4">
+                <dl className="space-y-3">
+                  <SummaryRow label="Subtotal" value={formatCents(totalCents)} />
+                  <SummaryRow label="Frete" value={formatCents(shippingCents)} />
+                  <div className="border-t border-[var(--color-line)] pt-3">
+                    <SummaryRow label="Total" value={formatCents(totalWithShippingCents)} strong />
+                  </div>
+                </dl>
+              </div>
+
+              <StatusCallout
+                tone="neutral"
+                title="Pagamento com retorno claro"
+                message="Depois do Mercado Pago, a aplicacao sincroniza o pedido e mostra o estado final do pagamento sem esconder erro ou pendencia."
+              />
+            </div>
+          </PurchaseSummaryCard>
+        </div>
+      </section>
     </div>
   );
 }

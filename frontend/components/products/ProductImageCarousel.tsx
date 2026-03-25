@@ -31,22 +31,14 @@ export function ProductImageCarousel({ images }: ProductImageCarouselProps) {
 
   if (hasNoImages) {
     return (
-      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg border border-[var(--color-line)] bg-slate-100">
-        <div className="flex h-full w-full items-center justify-center text-slate-400">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-            className="h-16 w-16"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
-            />
-          </svg>
+      <div className="overflow-hidden rounded-[28px] border border-[var(--color-line)] bg-[linear-gradient(180deg,rgba(16,26,47,0.96),rgba(10,18,33,0.96))] shadow-[0_20px_54px_rgba(0,0,0,0.24)]">
+        <div className="relative aspect-[4/4.8] w-full overflow-hidden bg-[radial-gradient(circle,rgba(104,179,255,0.14),transparent_48%)]">
+          <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-[var(--color-text-muted)]">
+            <div className="rounded-full border border-[var(--color-line)] bg-[var(--color-surface-2)] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em]">
+              Sem imagem
+            </div>
+            <p className="text-sm">Este produto ainda nao recebeu fotos.</p>
+          </div>
         </div>
       </div>
     );
@@ -56,100 +48,99 @@ export function ProductImageCarousel({ images }: ProductImageCarouselProps) {
 
   return (
     <div className="space-y-4">
-      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg border border-[var(--color-line)] bg-slate-100">
-        {selectedImage.url ? (
-          <Image
-            src={selectedImage.url}
-            alt={`Imagem ${selectedIndex + 1} de ${images.length}`}
-            fill
-            className="object-cover"
-            priority
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-slate-400">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-              className="h-16 w-16"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+      <div className="overflow-hidden rounded-[28px] border border-[var(--color-line)] bg-[linear-gradient(180deg,rgba(16,26,47,0.96),rgba(10,18,33,0.96))] shadow-[0_20px_54px_rgba(0,0,0,0.24)]">
+        <div className="relative aspect-[4/4.8] w-full overflow-hidden bg-[var(--color-surface-3)]">
+          {selectedImage.url ? (
+            <>
+              <Image
+                src={selectedImage.url}
+                alt={`Imagem ${selectedIndex + 1} de ${images.length}`}
+                fill
+                className="object-cover"
+                priority
               />
-            </svg>
+              <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#07111f]/84 via-[#07111f]/20 to-transparent" />
+            </>
+          ) : (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-[var(--color-text-muted)]">
+              <div className="rounded-full border border-[var(--color-line)] bg-[var(--color-surface-2)] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em]">
+                Sem imagem
+              </div>
+              <p className="text-sm">A foto principal ainda nao foi publicada.</p>
+            </div>
+          )}
+
+          <div className="absolute left-4 top-4 rounded-full border border-[var(--color-line)] bg-[rgba(7,17,31,0.78)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--color-text-secondary)] backdrop-blur">
+            Galeria
           </div>
-        )}
 
-        {hasMultipleImages && (
-          <>
-            <button
-              type="button"
-              onClick={handlePrevious}
-              className="absolute left-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 p-0 text-slate-700 shadow-md transition hover:bg-white hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-              aria-label="Imagem anterior"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                stroke="currentColor"
-                className="h-5 w-5"
+          {hasMultipleImages && (
+            <>
+              <button
+                type="button"
+                onClick={handlePrevious}
+                className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--color-line)] bg-[rgba(7,17,31,0.78)] text-[var(--color-text-primary)] shadow-[0_10px_24px_rgba(0,0,0,0.22)] transition hover:border-[var(--color-line-strong)] hover:bg-[rgba(10,18,33,0.94)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+                aria-label="Imagem anterior"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15.75 19.5L8.25 12l7.5-7.5"
-                />
-              </svg>
-            </button>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                  className="h-5 w-5"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15.75 19.5L8.25 12l7.5-7.5"
+                  />
+                </svg>
+              </button>
 
-            <button
-              type="button"
-              onClick={handleNext}
-              className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 p-0 text-slate-700 shadow-md transition hover:bg-white hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-              aria-label="Próxima imagem"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                stroke="currentColor"
-                className="h-5 w-5"
+              <button
+                type="button"
+                onClick={handleNext}
+                className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--color-line)] bg-[rgba(7,17,31,0.78)] text-[var(--color-text-primary)] shadow-[0_10px_24px_rgba(0,0,0,0.22)] transition hover:border-[var(--color-line-strong)] hover:bg-[rgba(10,18,33,0.94)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+                aria-label="Proxima imagem"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M8.25 4.5l7.5 7.5-7.5 7.5"
-                />
-              </svg>
-            </button>
-          </>
-        )}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                  className="h-5 w-5"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8.25 4.5l7.5 7.5-7.5 7.5"
+                  />
+                </svg>
+              </button>
+            </>
+          )}
 
-        {hasMultipleImages && (
-          <div className="absolute bottom-3 right-3 rounded-full bg-black/60 px-3 py-1 text-xs text-white">
-            {selectedIndex + 1} / {images.length}
-          </div>
-        )}
+          {hasMultipleImages && (
+            <div className="absolute bottom-4 right-4 rounded-full border border-[var(--color-line)] bg-[rgba(7,17,31,0.78)] px-3 py-1 text-xs text-[var(--color-text-primary)] backdrop-blur">
+              {selectedIndex + 1} / {images.length}
+            </div>
+          )}
+        </div>
       </div>
 
       {hasMultipleImages && (
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        <div className="flex gap-3 overflow-x-auto pb-1">
           {images.map((image, index) => (
             <button
               key={image.id}
               type="button"
               onClick={() => handleThumbnailClick(index)}
-              className={`relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border-2 transition focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:ring-offset-2 ${
+              className={`relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-2xl border transition focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:ring-offset-0 ${
                 index === selectedIndex
-                  ? "border-[var(--color-accent)]"
-                  : "border-transparent opacity-70 hover:opacity-100"
+                  ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] shadow-[0_12px_28px_rgba(0,0,0,0.2)]"
+                  : "border-[var(--color-line)] bg-[var(--color-surface-2)] opacity-75 hover:border-[var(--color-line-strong)] hover:opacity-100"
               }`}
               aria-label={`Ver imagem ${index + 1}`}
               aria-pressed={index === selectedIndex}
@@ -162,21 +153,8 @@ export function ProductImageCarousel({ images }: ProductImageCarouselProps) {
                   className="object-cover"
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-slate-200 text-slate-400">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.5}
-                    stroke="currentColor"
-                    className="h-6 w-6"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75a1.5 1.5h16.5.5-1 0 001.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
-                    />
-                  </svg>
+                <div className="flex h-full w-full items-center justify-center bg-[var(--color-surface-3)] text-[var(--color-text-muted)]">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.18em]">Fallback</span>
                 </div>
               )}
             </button>

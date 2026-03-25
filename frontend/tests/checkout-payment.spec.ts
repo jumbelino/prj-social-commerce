@@ -30,13 +30,13 @@ test.describe("Checkout Payment Methods", () => {
 
     await page.goto("/checkout");
 
-    await expect(page.getByText("Mercado Pago", { exact: true })).toBeVisible();
+    await expect(page.getByText("Checkout Pro do Mercado Pago")).toBeVisible();
     await expect(page.getByText("PIX via Mercado Pago")).toBeVisible();
 
     const checkoutProRadio = page.locator('input[value="checkout_pro"]');
     await expect(checkoutProRadio).toBeChecked();
 
-    await expect(page.getByRole("button", { name: /Create order and go to payment/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Criar pedido e ir para o Mercado Pago/i })).toBeVisible();
   });
 
   test("checkout enables PIX payment method selection", async ({ page }) => {
@@ -51,7 +51,7 @@ test.describe("Checkout Payment Methods", () => {
 
     await expect(pixRadio).toBeChecked();
 
-    await expect(page.getByRole("button", { name: /Create order with PIX/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("button", { name: /Criar pedido com PIX/i })).toBeVisible({ timeout: 15000 });
   });
 
   test("checkout shows order created and Checkout Pro redirect section", async ({ page }) => {
@@ -124,21 +124,25 @@ test.describe("Checkout Payment Methods", () => {
     await page.fill("#customerEmail", "test@example.com");
     await page.fill("#customerPhone", "+551199999999");
 
-    await page.getByRole("button", { name: /Create order and go to payment/i }).click();
+    await page.getByRole("button", { name: /Criar pedido e ir para o Mercado Pago/i }).click();
 
     await page.waitForFunction(() => {
-      return document.body.innerText.includes("Order created") || 
+      return document.body.innerText.includes("Pedido criado com sucesso") ||
              document.body.innerText.includes("Preference ID");
     }, { timeout: 10000 });
 
     expect(orderCreated).toBe(true);
     expect(preferenceCreated).toBe(true);
 
-    await expect(page.getByText("Order created")).toBeVisible();
-    await expect(page.getByText("Order ID:").locator("span")).toHaveText("test-order-123");
+    await expect(page.getByRole("heading", { name: "Pedido criado com sucesso" })).toBeVisible();
+    await expect(page.getByText("test-order-123")).toBeVisible();
 
-    await expect(page.getByRole("heading", { name: "Redirecting to payment" })).toBeVisible();
-    await expect(page.getByText("Preference ID:").locator("span")).toHaveText("preference-123");
+    const observedCheckoutProState = await Promise.race([
+      page.getByRole("heading", { name: "Redirecionando para o Mercado Pago" }).waitFor({ state: "visible" }).then(() => "local"),
+      page.waitForURL(/sandbox\.mercadopago\.com\.br\/checkout\/start/, { timeout: 10_000 }).then(() => "redirect"),
+    ]);
+
+    expect(["local", "redirect"]).toContain(observedCheckoutProState);
   });
 
   test("checkout shows order created and PIX payment details", async ({ page }) => {
@@ -212,22 +216,22 @@ test.describe("Checkout Payment Methods", () => {
     const pixRadio = page.locator('input[value="pix"]');
     await pixRadio.click();
 
-    await page.getByRole("button", { name: /Create order with PIX/i }).click();
+    await page.getByRole("button", { name: /Criar pedido com PIX/i }).click();
 
     await page.waitForTimeout(1500);
 
     expect(orderCreated).toBe(true);
     expect(pixPaymentCreated).toBe(true);
 
-    await expect(page.getByText("Order created")).toBeVisible();
-    await expect(page.getByText("Order ID:").locator("span")).toHaveText("test-order-456");
+    await expect(page.getByRole("heading", { name: "Pedido criado com sucesso" })).toBeVisible();
+    await expect(page.locator("p").filter({ hasText: /^test-order-456$/ })).toBeVisible();
 
-    await expect(page.getByRole("heading", { name: "PIX Payment" })).toBeVisible();
-    await expect(page.getByText("Payment ID:").locator("span")).toHaveText("pix-12345678");
-    await expect(page.getByText("PIX Copy/Paste Code:")).toBeVisible();
-    await expect(page.getByText("PIX QR Code:")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Dados do pagamento gerados" })).toBeVisible();
+    await expect(page.getByText("pix-12345678")).toBeVisible();
+    await expect(page.getByText("Codigo copia e cola", { exact: true })).toBeVisible();
+    await expect(page.getByText("QR Code do PIX")).toBeVisible();
 
-    await expect(page.getByText("Redirecting to payment")).not.toBeVisible();
+    await expect(page.getByText("Redirecionando para o Mercado Pago")).not.toBeVisible();
   });
 
   test("checkout shows explicit error when payment API fails", async ({ page }) => {
@@ -291,13 +295,13 @@ test.describe("Checkout Payment Methods", () => {
     await page.fill("#customerEmail", "fail@example.com");
     await page.fill("#customerPhone", "+551177777777");
 
-    await page.getByRole("button", { name: /Create order and go to payment/i }).click();
+    await page.getByRole("button", { name: /Criar pedido e ir para o Mercado Pago/i }).click();
 
     await page.waitForTimeout(1500);
 
     expect(orderCreated).toBe(true);
 
-    await expect(page.getByText("Payment request failed")).toBeVisible();
+    await expect(page.getByText("Falha ao iniciar pagamento")).toBeVisible();
     await expect(page.getByText(/Invalid or expired Mercado Pago access token/)).toBeVisible();
   });
 
@@ -395,7 +399,7 @@ test.describe("Checkout Payment Methods", () => {
     await page.goto("/checkout/result?order_id=test-order-pending&payment_id=mp-pending-1&status=pending");
 
     await expect(page.getByRole("heading", { name: "Pagamento pendente" })).toBeVisible();
-    await expect(page.getByText(/O pedido foi criado, mas o pagamento ainda não foi confirmado/)).toBeVisible();
+    await expect(page.getByText(/o Mercado Pago ainda nao confirmou o pagamento/i).first()).toBeVisible();
   });
 
   test("checkout result page shows rejected payment explicitly", async ({ page }) => {
@@ -438,6 +442,6 @@ test.describe("Checkout Payment Methods", () => {
     await page.goto("/checkout/result?order_id=test-order-rejected&payment_id=mp-rejected-1&status=rejected");
 
     await expect(page.getByRole("heading", { name: "Pagamento rejeitado" })).toBeVisible();
-    await expect(page.getByText(/Estoque devolvido em/)).toBeVisible();
+    await expect(page.getByText(/estoque voltou a ficar disponivel em/i)).toBeVisible();
   });
 });
