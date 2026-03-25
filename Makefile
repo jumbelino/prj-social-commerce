@@ -1,4 +1,4 @@
-.PHONY: dev-up dev-down dev-logs dev-migrate
+.PHONY: dev-up dev-down dev-logs dev-migrate test-product-images-backend test-product-images-e2e
 
 COMPOSE_FILE := infra/dev/docker-compose.yml
 COMPOSE := docker compose -f $(COMPOSE_FILE)
@@ -40,3 +40,9 @@ dev-migrate:
 	$(ensure_docker)
 	$(ensure_compose_file)
 	$(COMPOSE) run --rm --entrypoint "" backend alembic upgrade head
+
+test-product-images-backend:
+	cd backend && .venv/bin/python -m pytest tests/test_minio_storage.py tests/test_admin_product_images.py -q
+
+test-product-images-e2e:
+	npm --prefix frontend run test:e2e:product-images

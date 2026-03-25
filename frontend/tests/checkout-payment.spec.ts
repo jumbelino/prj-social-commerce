@@ -30,8 +30,8 @@ test.describe("Checkout Payment Methods", () => {
 
     await page.goto("/checkout");
 
-    await expect(page.getByText("Mercado Pago Checkout Pro (card)")).toBeVisible();
-    await expect(page.getByText("PIX (instant payment)")).toBeVisible();
+    await expect(page.getByText("Mercado Pago", { exact: true })).toBeVisible();
+    await expect(page.getByText("PIX via Mercado Pago")).toBeVisible();
 
     const checkoutProRadio = page.locator('input[value="checkout_pro"]');
     await expect(checkoutProRadio).toBeChecked();
@@ -81,6 +81,10 @@ test.describe("Checkout Payment Methods", () => {
             shipping_to_postal_code: "01018020",
             shipping_quote_json: null,
             total_cents: 7190,
+            expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+            inventory_released_at: null,
+            latest_payment_status: null,
+            latest_payment_external_id: null,
             created_at: new Date().toISOString(),
             items: [],
           }),
@@ -100,6 +104,8 @@ test.describe("Checkout Payment Methods", () => {
             preference_id: "preference-123",
             init_point: "https://www.mercadopago.com.br/checkout/start?pref_id=preference-123",
             sandbox_init_point: "https://sandbox.mercadopago.com.br/checkout/start?pref_id=preference-123",
+            checkout_url: "https://sandbox.mercadopago.com.br/checkout/start?pref_id=preference-123",
+            is_sandbox: true,
           }),
         });
       } else {
@@ -160,6 +166,10 @@ test.describe("Checkout Payment Methods", () => {
             shipping_delivery_days: 5,
             shipping_to_postal_code: "01018020",
             total_cents: 7190,
+            expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+            inventory_released_at: null,
+            latest_payment_status: null,
+            latest_payment_external_id: null,
             created_at: new Date().toISOString(),
             items: [],
           }),
@@ -244,6 +254,10 @@ test.describe("Checkout Payment Methods", () => {
             shipping_delivery_days: 5,
             shipping_to_postal_code: "01018020",
             total_cents: 7190,
+            expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+            inventory_released_at: null,
+            latest_payment_status: null,
+            latest_payment_external_id: null,
             created_at: new Date().toISOString(),
             items: [],
           }),
@@ -285,5 +299,145 @@ test.describe("Checkout Payment Methods", () => {
 
     await expect(page.getByText("Payment request failed")).toBeVisible();
     await expect(page.getByText(/Invalid or expired Mercado Pago access token/)).toBeVisible();
+  });
+
+  test("checkout result page shows explicit success and clears cart after payment approval", async ({ page }) => {
+    await page.addInitScript((cart) => {
+      window.localStorage.setItem("social-commerce-cart", JSON.stringify(cart));
+    }, CART_WITH_SELECTED_SHIPPING);
+
+    await page.route("**/payments/mercado-pago/sync", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            id: "test-order-success",
+            status: "paid",
+            customer_id: 1,
+            customer_name: "Approved Buyer",
+            customer_email: "approved@example.com",
+            customer_phone: "+551199999999",
+            source: "storefront",
+            subtotal_cents: 5990,
+            shipping_cents: 1200,
+            shipping_provider: "melhor_envio",
+            shipping_service_id: 1,
+            shipping_service_name: "PAC",
+            shipping_delivery_days: 5,
+            shipping_from_postal_code: "01018020",
+            shipping_to_postal_code: "01018020",
+            shipping_quote_json: null,
+            total_cents: 7190,
+            expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+            inventory_released_at: null,
+            latest_payment_status: "approved",
+            latest_payment_external_id: "mp-approved-1",
+            created_at: new Date().toISOString(),
+            items: [],
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    await page.goto("/checkout/result?order_id=test-order-success&payment_id=mp-approved-1&status=approved");
+
+    await expect(page.getByRole("heading", { name: "Pagamento confirmado" })).toBeVisible();
+    await expect(page.getByText(/Status do pedido:/)).toBeVisible();
+    await expect(page.getByText(/Status do pagamento:/)).toBeVisible();
+    await page.waitForFunction(() => {
+      const raw = window.localStorage.getItem("social-commerce-cart");
+      return typeof raw === "string" && raw.includes("\"items\":[]");
+    });
+    const storedCart = await page.evaluate(() => window.localStorage.getItem("social-commerce-cart"));
+    expect(storedCart).toContain("\"items\":[]");
+  });
+
+  test("checkout result page shows pending payment explicitly", async ({ page }) => {
+    await page.route("**/payments/mercado-pago/sync", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            id: "test-order-pending",
+            status: "pending",
+            customer_id: 1,
+            customer_name: "Pending Buyer",
+            customer_email: "pending@example.com",
+            customer_phone: "+551199999999",
+            source: "storefront",
+            subtotal_cents: 5990,
+            shipping_cents: 1200,
+            shipping_provider: "melhor_envio",
+            shipping_service_id: 1,
+            shipping_service_name: "PAC",
+            shipping_delivery_days: 5,
+            shipping_from_postal_code: "01018020",
+            shipping_to_postal_code: "01018020",
+            shipping_quote_json: null,
+            total_cents: 7190,
+            expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+            inventory_released_at: null,
+            latest_payment_status: "pending",
+            latest_payment_external_id: "mp-pending-1",
+            created_at: new Date().toISOString(),
+            items: [],
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    await page.goto("/checkout/result?order_id=test-order-pending&payment_id=mp-pending-1&status=pending");
+
+    await expect(page.getByRole("heading", { name: "Pagamento pendente" })).toBeVisible();
+    await expect(page.getByText(/O pedido foi criado, mas o pagamento ainda não foi confirmado/)).toBeVisible();
+  });
+
+  test("checkout result page shows rejected payment explicitly", async ({ page }) => {
+    await page.route("**/payments/mercado-pago/sync", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            id: "test-order-rejected",
+            status: "cancelled",
+            customer_id: 1,
+            customer_name: "Rejected Buyer",
+            customer_email: "rejected@example.com",
+            customer_phone: "+551199999999",
+            source: "storefront",
+            subtotal_cents: 5990,
+            shipping_cents: 1200,
+            shipping_provider: "melhor_envio",
+            shipping_service_id: 1,
+            shipping_service_name: "PAC",
+            shipping_delivery_days: 5,
+            shipping_from_postal_code: "01018020",
+            shipping_to_postal_code: "01018020",
+            shipping_quote_json: null,
+            total_cents: 7190,
+            expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+            inventory_released_at: new Date().toISOString(),
+            latest_payment_status: "rejected",
+            latest_payment_external_id: "mp-rejected-1",
+            created_at: new Date().toISOString(),
+            items: [],
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    await page.goto("/checkout/result?order_id=test-order-rejected&payment_id=mp-rejected-1&status=rejected");
+
+    await expect(page.getByRole("heading", { name: "Pagamento rejeitado" })).toBeVisible();
+    await expect(page.getByText(/Estoque devolvido em/)).toBeVisible();
   });
 });

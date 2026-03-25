@@ -19,6 +19,7 @@ from ..integrations.mercado_pago import (
 )
 from ..models.order import Order
 from ..models.payment import Payment
+from ..services import sync_order_with_payment_status
 
 webhooks_router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
@@ -147,9 +148,8 @@ async def mercado_pago_webhook(
                     select(Order).where(Order.id == payment.order_id).with_for_update()
                 ).scalar_one_or_none()
 
-            if order is not None and mp_status == "approved" and order.status == "pending":
-                order.status = "paid"
-                db.add(order)
+            if order is not None:
+                sync_order_with_payment_status(db, order, mp_status)
 
             db.commit()
             return {"status": "ok"}

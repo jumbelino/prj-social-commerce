@@ -1,23 +1,34 @@
 # pyright: reportMissingImports=false, reportAttributeAccessIssue=false
 
 from collections.abc import Mapping
+import os
 from typing import Annotated
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from ..db.session import get_db_session
-from ..integrations.mercado_pago import MercadoPagoClient, MercadoPagoError, read_mercado_pago_access_token
+from ..integrations.mercado_pago import (
+    MercadoPagoClient,
+    MercadoPagoError,
+    is_mercado_pago_sandbox_enabled,
+    read_mercado_pago_access_token,
+)
 from ..models.order import Order, OrderItem
 from ..models.payment import Payment
+from ..schemas.orders import OrderRead
 from ..schemas.payments import (
     MercadoPagoPaymentCreateRequest,
     MercadoPagoPixPaymentResponse,
     MercadoPagoPreferenceCreateRequest,
     MercadoPagoPreferenceResponse,
+    MercadoPagoPaymentSyncRequest,
 )
+from ..services import expire_order_if_needed, load_order_with_items, sync_order_with_payment_status
 
 payments_router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -87,6 +98,96 @@ def _build_checkout_preference_items(db: Session, order: Order) -> list[dict[str
     return items
 
 
+def _append_query_params(url: str, params: Mapping[str, str]) -> str:
+    parsed = urlsplit(url)
+    query_items = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    query_items.update(params)
+    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(query_items), parsed.fragment))
+
+
+def _build_checkout_back_urls(order: Order, return_url_base: str) -> dict[str, str]:
+    normalized_base = return_url_base.strip()
+    base_params = {"order_id": str(order.id)}
+    return {
+        "success": _append_query_params(normalized_base, {**base_params, "outcome": "success"}),
+        "pending": _append_query_params(normalized_base, {**base_params, "outcome": "pending"}),
+        "failure": _append_query_params(normalized_base, {**base_params, "outcome": "failure"}),
+    }
+
+
+def _upsert_payment_for_order(
+    db: Session,
+    *,
+    order: Order,
+    status_value: str,
+    external_id: str | None,
+) -> Payment:
+    payment = db.execute(
+        select(Payment)
+        .where(Payment.order_id == order.id)
+        .where(Payment.provider == "mercado_pago")
+        .order_by(Payment.created_at.desc())
+    ).scalars().first()
+    if payment is None:
+        payment = Payment(
+            order_id=order.id,
+            provider="mercado_pago",
+            external_reference=str(order.id),
+        )
+    payment.status = status_value
+    payment.external_id = external_id
+    payment.external_reference = str(order.id)
+    db.add(payment)
+    return payment
+
+
+def _sync_order_payment(
+    db: Session,
+    *,
+    order_id: UUID,
+    payment_id: str | None,
+    payment_status: str | None,
+    client: MercadoPagoClient,
+) -> Order:
+    order = db.execute(
+        select(Order)
+        .options(selectinload(Order.items), selectinload(Order.payments))
+        .where(Order.id == order_id)
+        .with_for_update()
+    ).scalar_one_or_none()
+    if order is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="order not found")
+
+    if expire_order_if_needed(db, order):
+        db.commit()
+        return load_order_with_items(db, order.id)
+
+    remote_status = payment_status
+    resolved_payment_id = payment_id
+    if payment_id is not None:
+        try:
+            payment_data = client.get_payment(payment_id)
+        except MercadoPagoError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Mercado Pago error ({exc.status_code}): {exc.response_body}",
+            ) from exc
+        resolved_payment_id = "" if payment_data.get("id") is None else str(payment_data.get("id"))
+        remote_status = "" if payment_data.get("status") is None else str(payment_data.get("status"))
+    elif payment_status is None:
+        return order
+
+    _upsert_payment_for_order(
+        db,
+        order=order,
+        status_value="" if remote_status is None else str(remote_status),
+        external_id=resolved_payment_id,
+    )
+    sync_order_with_payment_status(db, order, remote_status)
+    db.commit()
+    return load_order_with_items(db, order.id)
+
+
 @payments_router.post("/mercado-pago", response_model=MercadoPagoPixPaymentResponse)
 def create_mercado_pago_payment(
     payload: MercadoPagoPaymentCreateRequest,
@@ -102,6 +203,12 @@ def create_mercado_pago_payment(
     order = db.execute(select(Order).where(Order.id == payload.order_id).with_for_update()).scalar_one_or_none()
     if order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="order not found")
+    if expire_order_if_needed(db, order):
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="order expired before payment creation",
+        )
     if order.status != "pending":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -171,10 +278,30 @@ def create_mercado_pago_payment(
             return _build_response_from_payment(collided_payment)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="payment persistence failed",
-        )
+        detail="payment persistence failed",
+    )
 
     return _build_pix_response(payment_data)
+
+
+@payments_router.post("/mercado-pago/sync", response_model=OrderRead)
+def sync_mercado_pago_payment(
+    payload: MercadoPagoPaymentSyncRequest,
+    db: Annotated[Session, Depends(get_db_session)],
+) -> Order:
+    try:
+        access_token = read_mercado_pago_access_token()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+
+    client = MercadoPagoClient(access_token=access_token)
+    return _sync_order_payment(
+        db,
+        order_id=payload.order_id,
+        payment_id=payload.payment_id,
+        payment_status=payload.payment_status,
+        client=client,
+    )
 
 
 @payments_router.post("/mercado-pago/preference", response_model=MercadoPagoPreferenceResponse)
@@ -188,10 +315,17 @@ def create_mercado_pago_preference(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 
     client = MercadoPagoClient(access_token=access_token)
+    is_sandbox = is_mercado_pago_sandbox_enabled(access_token)
 
     order = db.execute(select(Order).where(Order.id == payload.order_id).with_for_update()).scalar_one_or_none()
     if order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="order not found")
+    if expire_order_if_needed(db, order):
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="order expired before checkout preference creation",
+        )
     if order.status != "pending":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -199,11 +333,16 @@ def create_mercado_pago_preference(
         )
 
     items = _build_checkout_preference_items(db, order)
+    back_urls = None if payload.return_url_base is None else _build_checkout_back_urls(order, payload.return_url_base)
+    notification_url = os.getenv("MERCADO_PAGO_NOTIFICATION_URL")
 
     try:
         preference_data = client.create_checkout_preference(
             external_reference=str(order.id),
             items=items,
+            payer_email=order.customer_email,
+            back_urls=back_urls,
+            notification_url=notification_url,
         )
     except MercadoPagoError as exc:
         raise HTTPException(
@@ -220,8 +359,18 @@ def create_mercado_pago_preference(
             detail="Mercado Pago preference response missing required fields",
         )
 
+    _upsert_payment_for_order(
+        db,
+        order=order,
+        status_value="pending",
+        external_id=str(preference_id),
+    )
+    db.commit()
+
     return MercadoPagoPreferenceResponse(
         preference_id=str(preference_id),
         init_point=str(init_point),
         sandbox_init_point=str(sandbox_init_point),
+        checkout_url=str(sandbox_init_point if is_sandbox else init_point),
+        is_sandbox=is_sandbox,
     )

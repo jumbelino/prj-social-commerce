@@ -43,21 +43,27 @@ class MinioStorage:
         self._bucket = bucket
         self._public_base_url = public_base_url.rstrip("/")
 
-    def upload_file(self, *, object_key: str, file_obj: BinaryIO, content_type: str | None) -> None:
+    def _ensure_bucket_exists(self) -> None:
         if not self._client.bucket_exists(self._bucket):
             self._client.make_bucket(self._bucket)
-            policy = {
-                "Version": "2012-10-17",
-                "Statement": [
-                    {
-                        "Effect": "Allow",
-                        "Principal": {"AWS": ["*"]},
-                        "Action": ["s3:GetObject"],
-                        "Resource": [f"arn:aws:s3:::{self._bucket}/*"],
-                    }
-                ],
-            }
-            self._client.set_bucket_policy(self._bucket, json.dumps(policy))
+
+    def _ensure_public_read_policy(self) -> None:
+        policy = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {"AWS": ["*"]},
+                    "Action": ["s3:GetObject"],
+                    "Resource": [f"arn:aws:s3:::{self._bucket}/*"],
+                }
+            ],
+        }
+        self._client.set_bucket_policy(self._bucket, json.dumps(policy))
+
+    def upload_file(self, *, object_key: str, file_obj: BinaryIO, content_type: str | None) -> None:
+        self._ensure_bucket_exists()
+        self._ensure_public_read_policy()
         self._client.put_object(
             bucket_name=self._bucket,
             object_name=object_key,

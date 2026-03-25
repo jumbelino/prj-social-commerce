@@ -49,9 +49,13 @@ def test_checkout_preference_endpoint_returns_init_points(
             *,
             external_reference: str,
             items: list[dict[str, object]],
+            payer_email: str | None = None,
+            back_urls: dict[str, str] | None = None,
+            notification_url: str | None = None,
         ) -> dict[str, object]:
             type(self).create_calls += 1
             assert external_reference == str(order.id)
+            assert payer_email == "checkout@example.com"
             assert len(items) == 2
             assert items[0]["currency_id"] == "BRL"
             assert items[0]["quantity"] == 2
@@ -59,13 +63,23 @@ def test_checkout_preference_endpoint_returns_init_points(
             assert items[1]["title"] == "Shipping"
             assert items[1]["quantity"] == 1
             assert items[1]["unit_price"] == 7.0
+            assert back_urls is not None
+            assert back_urls["success"].startswith("http://localhost:3000/checkout/result?")
+            assert "order_id=" in back_urls["success"]
+            assert "outcome=success" in back_urls["success"]
+            assert back_urls["pending"].startswith("http://localhost:3000/checkout/result?")
+            assert "outcome=pending" in back_urls["pending"]
+            assert back_urls["failure"].startswith("http://localhost:3000/checkout/result?")
+            assert "outcome=failure" in back_urls["failure"]
+            assert notification_url is None
             return {
                 "id": "pref-test-1",
                 "init_point": "https://example.com/init/pref-test-1",
                 "sandbox_init_point": "https://example.com/sandbox/pref-test-1",
             }
 
-    monkeypatch.setattr("app.api.payments.read_mercado_pago_access_token", lambda: "token-for-tests")
+    monkeypatch.setenv("MERCADO_PAGO_CHECKOUT_MODE", "sandbox")
+    monkeypatch.setattr("app.api.payments.read_mercado_pago_access_token", lambda: "APP_USR-token-for-tests")
     monkeypatch.setattr("app.api.payments.MercadoPagoClient", FakeMercadoPagoClient)
 
     variant = _seed_variant(db_session, price_cents=1500)
@@ -92,20 +106,90 @@ def test_checkout_preference_endpoint_returns_init_points(
     )
     db_session.commit()
 
-    response = client.post("/payments/mercado-pago/preference", json={"order_id": str(order.id)})
+    response = client.post(
+        "/payments/mercado-pago/preference",
+        json={
+            "order_id": str(order.id),
+            "return_url_base": "http://localhost:3000/checkout/result",
+        },
+    )
 
     assert response.status_code == 200
     assert response.json() == {
         "preference_id": "pref-test-1",
         "init_point": "https://example.com/init/pref-test-1",
         "sandbox_init_point": "https://example.com/sandbox/pref-test-1",
+        "checkout_url": "https://example.com/sandbox/pref-test-1",
+        "is_sandbox": True,
     }
     assert FakeMercadoPagoClient.create_calls == 1
 
     persisted_payment = db_session.execute(
         select(Payment).where(Payment.order_id == order.id).where(Payment.provider == "mercado_pago")
     ).scalar_one_or_none()
-    assert persisted_payment is None
+    assert persisted_payment is not None
+    assert persisted_payment.status == "pending"
+    assert persisted_payment.external_id == "pref-test-1"
+    assert persisted_payment.external_reference == str(order.id)
+
+
+def test_checkout_result_sync_endpoint_updates_order_from_payment(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeMercadoPagoClient:
+        def __init__(self, access_token: str):
+            self.access_token = access_token
+
+        def get_payment(self, payment_id: str) -> dict[str, object]:
+            assert payment_id == "mp-sync-1"
+            return {
+                "id": payment_id,
+                "status": "approved",
+                "external_reference": str(order.id),
+            }
+
+    monkeypatch.setattr("app.api.payments.read_mercado_pago_access_token", lambda: "APP_USR-token-for-tests")
+    monkeypatch.setattr("app.api.payments.MercadoPagoClient", FakeMercadoPagoClient)
+
+    order = Order(
+        status="pending",
+        customer_name="Sync Buyer",
+        customer_email="sync@example.com",
+        customer_phone=None,
+        total_cents=4200,
+    )
+    db_session.add(order)
+    db_session.commit()
+
+    response = client.post(
+        "/payments/mercado-pago/sync",
+        json={
+            "order_id": str(order.id),
+            "payment_id": "mp-sync-1",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "paid"
+    assert payload["latest_payment_status"] == "approved"
+    assert payload["latest_payment_external_id"] == "mp-sync-1"
+
+    db_session.expire_all()
+    persisted_order = db_session.get(Order, order.id)
+    persisted_payment = db_session.execute(
+        select(Payment)
+        .where(Payment.provider == "mercado_pago")
+        .where(Payment.order_id == order.id)
+    ).scalar_one_or_none()
+
+    assert persisted_order is not None
+    assert persisted_order.status == "paid"
+    assert persisted_payment is not None
+    assert persisted_payment.external_id == "mp-sync-1"
+    assert persisted_payment.status == "approved"
 
 
 def test_webhook_creates_payment_from_external_reference_when_missing_external_id(

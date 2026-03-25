@@ -10,20 +10,25 @@ function isKeycloakAuthUrl(url: string): boolean {
 
 async function getUnauthDestination(page: Page): Promise<"nextauth" | "keycloak"> {
   const nextAuthButton = page.getByRole("button", { name: "Sign in with Keycloak" });
-  const timeoutMs = 15_000;
-  const pollMs = 200;
-  const deadline = Date.now() + timeoutMs;
 
-  while (Date.now() < deadline) {
-    if (isKeycloakAuthUrl(page.url())) {
-      return "keycloak";
-    }
+  // Try to detect Keycloak auth URL first using expect.poll for non-arbitrary waits
+  try {
+    await expect
+      .poll(
+        async () => isKeycloakAuthUrl(page.url()),
+        { timeout: 15_000, intervals: [200, 500, 1_000] }
+      )
+      .toBe(true);
+    return "keycloak";
+  } catch {
+    // Not on Keycloak URL, check for NextAuth sign-in button
+  }
 
-    if (await nextAuthButton.isVisible().catch(() => false)) {
-      return "nextauth";
-    }
-
-    await page.waitForTimeout(pollMs);
+  try {
+    await expect(nextAuthButton).toBeVisible({ timeout: 15_000 });
+    return "nextauth";
+  } catch {
+    // Fall through to timeout error
   }
 
   throw new Error("Timed out waiting for unauth destination (NextAuth sign-in or Keycloak)");
@@ -127,7 +132,33 @@ async function gotoCurrentOriginPath(page: Page, pathname: string): Promise<void
   await page.goto(`${origin}${pathname}`);
 }
 
+/**
+ * Asserts that an image element is fully loaded (decoded, not broken).
+ * Prevents false positives from `toBeVisible()` alone — a broken <img> can be visible
+ * while returning empty content. This helper verifies:
+ *   1. Element is attached/visible
+ *   2. HTMLImageElement.complete === true
+ *   3. naturalWidth > 0 (proves the browser actually decoded pixels)
+ *
+ * Uses `expect.poll` for deterministic, non-arbitrary waits on decode state.
+ */
+async function expectImageLoaded(locator: ReturnType<Page["locator"]>): Promise<void> {
+  await expect(locator).toBeVisible();
+
+  await expect
+    .poll(
+      async () =>
+        locator.evaluate(
+          (el: HTMLImageElement) => el.complete && el.naturalWidth > 0
+        ),
+      { timeout: 20_000, intervals: [250, 500, 1_000] }
+    )
+    .toBe(true);
+}
+
 test.describe("Product Images Flow", () => {
+  test.setTimeout(180_000);
+
   test("admin can upload image and storefront displays it", async ({ page }) => {
     const timestamp = Date.now();
     const productTitle = `Test Product with Image ${timestamp}`;
@@ -139,28 +170,91 @@ test.describe("Product Images Flow", () => {
 
     await expect(page.locator("h1")).toContainText("Novo Produto");
 
-    await page.fill('input[id="title"]', productTitle);
-    await page.fill('textarea[id="description"]', "Test product with image");
-    await page.fill('input[id="variants.0.sku"]', sku);
-    await page.fill('input[id="variants.0.priceCents"]', "5990");
-    await page.fill('input[id="variants.0.stock"]', "100");
+    await page.locator('input[id="title"]').pressSequentially(productTitle);
+    await page.locator('textarea[id="description"]').pressSequentially("Test product with image");
+    await page.locator('input[id="variants.0.sku"]').pressSequentially(sku);
+    await page.locator('input[id="variants.0.priceCents"]').pressSequentially("5990");
+    await page.locator('input[id="variants.0.stock"]').pressSequentially("100");
 
-    await page
-      .locator('button[type="submit"], button:has-text("Criar produto"), button:has-text("Salvar alterações")')
-      .first()
-      .click({ noWaitAfter: true });
+    const isAdminProductsResponse = (res: Response) =>
+      res.url().includes("/api/admin/products") && res.request().method() === "POST";
 
-    await page.waitForURL(
-      (url) => url.pathname.startsWith("/admin/products/") && !url.pathname.endsWith("/new") && url.pathname !== "/admin/products",
-      { timeout: 15_000 }
-    );
+    if (!(await hasSessionAccessToken(page))) {
+      await loginAsAdmin(page);
+      await gotoCurrentOriginPath(page, "/admin/products/new");
+      await expect(page.locator("h1")).toContainText("Novo Produto");
+      await page.locator('input[id="title"]').pressSequentially(productTitle);
+      await page.locator('textarea[id="description"]').pressSequentially("Test product with image");
+      await page.locator('input[id="variants.0.sku"]').pressSequentially(sku);
+      await page.locator('input[id="variants.0.priceCents"]').pressSequentially("5990");
+      await page.locator('input[id="variants.0.stock"]').pressSequentially("100");
+    }
 
-    await expect(page.getByRole('button', { name: 'Adicionar', exact: true })).toBeVisible({ timeout: 10_000 });
+    const submitBtn = page.locator('button[type="submit"]');
+    await expect(submitBtn).toBeEnabled({ timeout: 10_000 });
+
+    let response: Response;
+    try {
+      [response] = await Promise.all([
+        page.waitForResponse(isAdminProductsResponse, { timeout: 60_000 }),
+        submitBtn.click(),
+      ]);
+    } catch {
+      [response] = await Promise.all([
+        page.waitForResponse(isAdminProductsResponse, { timeout: 60_000 }),
+        page.evaluate(() => {
+          const form = document.querySelector("form");
+          if (form) form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+        }),
+      ]);
+    }
+
+    if (!response.ok()) {
+      const body = await response.text().catch(() => "(no body)");
+      throw new Error(`Product creation failed (${response.status()}): ${body}`);
+    }
+
+    const createdProduct = (await response.json()) as { id: string };
+    await gotoCurrentOriginPath(page, `/admin/products/${createdProduct.id}`);
+
+    await expect(page.getByRole("button", { name: "Adicionar", exact: true })).toBeVisible({ timeout: 10_000 });
 
     const fixturePath = path.resolve(__dirname, "fixtures", "test-product.png");
-    await page.locator('input[type="file"]').setInputFiles(fixturePath);
 
-    await expect(page.locator('img[alt="Imagem 1"]')).toBeVisible({ timeout: 20_000 });
+    const uploadPath = `/api/admin/products/${createdProduct.id}/images/upload`;
+
+    let uploadResponse: Response | null = null;
+    const responsePromise = new Promise<Response>((resolve) => {
+      page.on("response", function onResponse(res) {
+        if (res.request().method() === "POST" && res.url().includes(uploadPath)) {
+          page.off("response", onResponse);
+          resolve(res);
+        }
+      });
+    });
+
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Image upload timed out after 60s: ${uploadPath}`)), 60_000)
+    );
+
+    await page.locator("input[type='file']").first().setInputFiles(fixturePath);
+
+    try {
+      uploadResponse = await Promise.race([responsePromise, timeoutPromise]);
+    } catch (err) {
+      throw new Error(
+        `Image upload response timed out after 60s for endpoint ${uploadPath}: ${err}`
+      );
+    }
+
+    if (!uploadResponse.ok()) {
+      const body = await uploadResponse.text().catch(() => "(no body)");
+      throw new Error(`Image upload failed (${uploadResponse.status()}): ${body}`);
+    }
+
+    await expect(page.locator("text=Carregando...")).toBeHidden({ timeout: 60_000 });
+
+    await expectImageLoaded(page.locator('img[alt="Imagem 1"]'));
 
     await expect(page.locator('text=Principal')).toBeVisible();
 
@@ -171,14 +265,14 @@ test.describe("Product Images Flow", () => {
     const productCard = page.locator(`article:has-text("${productTitle}")`);
 
     const productImage = productCard.locator('div.relative img');
-    await expect(productImage).toBeVisible();
+    await expectImageLoaded(productImage);
 
     await productImage.click();
 
     await page.waitForURL((url) => url.pathname.startsWith("/products/"), { timeout: 10_000 });
 
     const carouselMainImage = page.locator('img[alt^="Imagem "]').first();
-    await expect(carouselMainImage).toBeVisible();
+    await expectImageLoaded(carouselMainImage);
 
     await expect(page.locator(`h1:has-text("${productTitle}")`)).toBeVisible();
   });

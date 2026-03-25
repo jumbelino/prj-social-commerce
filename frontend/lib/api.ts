@@ -1,16 +1,19 @@
 const DEFAULT_PUBLIC_API_BASE_URL = "http://localhost:8000";
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? DEFAULT_PUBLIC_API_BASE_URL;
+function readPublicApiBaseUrl(): string {
+  const configuredBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+  if (!configuredBaseUrl) {
+    return DEFAULT_PUBLIC_API_BASE_URL;
+  }
+  return configuredBaseUrl;
+}
 
-function resolveApiBaseUrl(): string {
+export const API_BASE_URL = readPublicApiBaseUrl();
+
+function resolveStorefrontApiBaseUrl(): string {
   if (typeof window === "undefined") {
     return process.env.INTERNAL_API_BASE_URL ?? API_BASE_URL;
   }
-
-  if (API_BASE_URL.includes("localhost") && window.location.hostname !== "localhost") {
-    return `http://${window.location.hostname}:8000`;
-  }
-
   return API_BASE_URL;
 }
 
@@ -53,6 +56,7 @@ export type Product = {
 };
 
 export type ProductVariantCreatePayload = {
+  id?: string;
   sku: string;
   price_cents: number;
   attributes_json: Record<string, unknown>;
@@ -128,6 +132,7 @@ export type OrderItemRead = {
 export type OrderRead = {
   id: string;
   status: string;
+  customer_id: number | null;
   customer_name: string | null;
   customer_email: string | null;
   customer_phone: string | null;
@@ -142,6 +147,10 @@ export type OrderRead = {
   shipping_to_postal_code: string | null;
   shipping_quote_json: Record<string, unknown> | null;
   total_cents: number;
+  expires_at: string | null;
+  inventory_released_at: string | null;
+  latest_payment_status: string | null;
+  latest_payment_external_id: string | null;
   created_at: string;
   items: OrderItemRead[];
 };
@@ -159,6 +168,14 @@ export type MercadoPagoPreferenceResponse = {
   preference_id: string;
   init_point: string;
   sandbox_init_point: string;
+  checkout_url: string;
+  is_sandbox: boolean;
+};
+
+export type MercadoPagoPaymentSyncPayload = {
+  order_id: string;
+  payment_id?: string;
+  payment_status?: string;
 };
 
 export class ApiRequestError extends Error {
@@ -233,7 +250,7 @@ async function requestJsonFromUrl<TResponse>(url: string, init?: RequestInit): P
 }
 
 async function requestJson<TResponse>(path: string, init?: RequestInit): Promise<TResponse> {
-  return requestJsonFromUrl<TResponse>(`${resolveApiBaseUrl()}${path}`, init)
+  return requestJsonFromUrl<TResponse>(`${resolveStorefrontApiBaseUrl()}${path}`, init)
 }
 
 async function requestNextApi<TResponse>(path: string, init?: RequestInit): Promise<TResponse> {
@@ -255,6 +272,10 @@ export function createOrder(payload: OrderCreatePayload): Promise<OrderRead> {
   })
 }
 
+export function getOrderById(orderId: string): Promise<OrderRead> {
+  return requestJson<OrderRead>(`/orders/${orderId}`)
+}
+
 export function getShippingQuotes(payload: ShippingQuoteRequest): Promise<ShippingQuotesResponse> {
   return requestJson<ShippingQuotesResponse>("/shipping/quotes", {
     method: "POST",
@@ -269,10 +290,20 @@ export function createMercadoPagoPayment(orderId: string): Promise<MercadoPagoPi
   })
 }
 
-export function createMercadoPagoPreference(orderId: string): Promise<MercadoPagoPreferenceResponse> {
+export function createMercadoPagoPreference(orderId: string, returnUrlBase?: string): Promise<MercadoPagoPreferenceResponse> {
   return requestJson<MercadoPagoPreferenceResponse>("/payments/mercado-pago/preference", {
     method: "POST",
-    body: JSON.stringify({ order_id: orderId }),
+    body: JSON.stringify({
+      order_id: orderId,
+      ...(returnUrlBase ? { return_url_base: returnUrlBase } : {}),
+    }),
+  })
+}
+
+export function syncMercadoPagoPayment(payload: MercadoPagoPaymentSyncPayload): Promise<OrderRead> {
+  return requestJson<OrderRead>("/payments/mercado-pago/sync", {
+    method: "POST",
+    body: JSON.stringify(payload),
   })
 }
 
@@ -325,6 +356,10 @@ export function getAdminOrderById(orderId: string): Promise<OrderRead> {
   return requestNextApi<OrderRead>(`/api/admin/orders/${orderId}`)
 }
 
+export function getAdminProductById(productId: string): Promise<Product> {
+  return requestNextApi<Product>(`/api/admin/products/${productId}`)
+}
+
 export function updateAdminOrderStatus(orderId: string, status: string): Promise<OrderRead> {
   return requestNextApi<OrderRead>(`/api/admin/orders/${orderId}`, {
     method: "PATCH",
@@ -333,12 +368,12 @@ export function updateAdminOrderStatus(orderId: string, status: string): Promise
 }
 
 export type CustomerRead = {
-  id: string
-  name: string | null
+  id: number
+  name: string
   email: string | null
   phone: string | null
   created_at: string
-  total_orders?: number
+  total_orders: number
 }
 
 export type CustomerCreatePayload = {
@@ -365,9 +400,10 @@ export function createAdminCustomer(payload: CustomerCreatePayload): Promise<Cus
 
 export type CustomerWithOrders = {
   id: number
-  name: string | null
+  name: string
   email: string | null
   phone: string | null
+  created_at: string
   orders: OrderRead[]
   total_orders: number
 }

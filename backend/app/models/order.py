@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, func
@@ -7,7 +7,6 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.schemas.enums import OrderStatus
 
 
 if TYPE_CHECKING:
@@ -38,13 +37,38 @@ class Order(Base):
     shipping_to_postal_code: Mapped[str | None] = mapped_column(String(8), nullable=True)
     shipping_quote_json: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
     total_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    inventory_released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
-    customer: Mapped["Customer"] = relationship(back_populates="orders")
+    customer: Mapped["Customer | None"] = relationship(back_populates="orders")
     items: Mapped[list["OrderItem"]] = relationship(back_populates="order", cascade="all, delete-orphan")
     payments: Mapped[list["Payment"]] = relationship(back_populates="order", cascade="all, delete-orphan")
+
+    @property
+    def latest_payment(self) -> "Payment | None":
+        if not self.payments:
+            return None
+        return max(
+            self.payments,
+            key=lambda payment: payment.created_at or datetime.min.replace(tzinfo=timezone.utc),
+        )
+
+    @property
+    def latest_payment_status(self) -> str | None:
+        payment = self.latest_payment
+        if payment is None:
+            return None
+        return payment.status
+
+    @property
+    def latest_payment_external_id(self) -> str | None:
+        payment = self.latest_payment
+        if payment is None:
+            return None
+        return payment.external_id
 
 
 class OrderItem(Base):

@@ -107,6 +107,8 @@ def test_upload_creates_image_and_increments_position(
     assert payload["object_key"].startswith(f"products/{product.id}/")
     assert payload["object_key"].endswith(".png")
     assert payload["url"].endswith(payload["object_key"])
+    # Lock the URL contract: url must be exactly build_url(object_key)
+    assert payload["url"] == fake_storage.build_url(payload["object_key"])
 
     assert len(fake_storage.uploaded) == 1
     assert fake_storage.uploaded[0]["object_key"] == payload["object_key"]
