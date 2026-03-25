@@ -9,12 +9,21 @@ import EmptyState from "@/components/admin/EmptyState";
 const PAGE_SIZE = 20;
 const STATUSES = ["pending", "paid", "shipped", "delivered", "cancelled"] as const;
 
+function formatOrderSource(source: string): string {
+  return source === "admin_assisted" ? "Venda assistida" : "Loja";
+}
+
+function formatDeliveryMethod(deliveryMethod: OrderRead["delivery_method"]): string {
+  return deliveryMethod === "pickup" ? "Retirada" : "Envio";
+}
+
 export function OrdersClient() {
   const [orders, setOrders] = useState<OrderRead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [sourceFilter, setSourceFilter] = useState<string>("");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
   
@@ -31,6 +40,7 @@ export function OrdersClient() {
       const offset = (page - 1) * PAGE_SIZE;
       const data = await listAdminOrders({ 
         status: statusFilter || undefined, 
+        source: sourceFilter || undefined,
         start_date: startDate || undefined,
         end_date: endDate || undefined,
         limit: PAGE_SIZE + 1,
@@ -44,7 +54,7 @@ export function OrdersClient() {
     } finally {
       setIsLoading(false);
     }
-  }, [statusFilter, startDate, endDate, page]);
+  }, [statusFilter, sourceFilter, startDate, endDate, page]);
 
   useEffect(() => {
     loadOrders();
@@ -52,7 +62,7 @@ export function OrdersClient() {
 
   useEffect(() => {
     setPage(1);
-  }, [statusFilter, startDate, endDate]);
+  }, [statusFilter, sourceFilter, startDate, endDate]);
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
@@ -111,6 +121,16 @@ export function OrdersClient() {
               </option>
             ))}
           </select>
+
+          <select
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value)}
+            className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+          >
+            <option value="">Todas as origens</option>
+            <option value="storefront">Loja</option>
+            <option value="admin_assisted">Venda assistida</option>
+          </select>
           
           <input
             type="date"
@@ -168,6 +188,14 @@ export function OrdersClient() {
                       <p className="text-xs text-[var(--color-muted)]">
                         {new Date(order.created_at).toLocaleDateString("pt-BR")}
                       </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700">
+                          {formatOrderSource(order.source)}
+                        </span>
+                        <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700">
+                          {formatDeliveryMethod(order.delivery_method)}
+                        </span>
+                      </div>
                     </div>
                     <div className="text-right">
                       <p className="font-medium">{formatCents(order.total_cents)}</p>
@@ -224,7 +252,11 @@ export function OrdersClient() {
                 </div>
                 <div className="mt-2 flex items-center justify-between">
                   <p className="text-sm text-[var(--color-muted)]">Origem</p>
-                  <p className="text-sm">{selectedOrder.source}</p>
+                  <p className="text-sm">{formatOrderSource(selectedOrder.source)}</p>
+                </div>
+                <div className="mt-2 flex items-center justify-between">
+                  <p className="text-sm text-[var(--color-muted)]">Entrega</p>
+                  <p className="text-sm">{formatDeliveryMethod(selectedOrder.delivery_method)}</p>
                 </div>
               </div>
 
@@ -252,10 +284,16 @@ export function OrdersClient() {
               <div className="rounded-lg bg-slate-50 p-4">
                 <p className="text-sm font-medium">Frete</p>
                 <div className="mt-2 space-y-1 text-sm">
-                  <p>{selectedOrder.shipping_service_name || "-"}</p>
-                  <p className="text-[var(--color-muted)]">
-                    {selectedOrder.shipping_delivery_days} dias - {formatCents(selectedOrder.shipping_cents)}
-                  </p>
+                  {selectedOrder.delivery_method === "pickup" ? (
+                    <p className="text-[var(--color-muted)]">Retirada sem frete calculado</p>
+                  ) : (
+                    <>
+                      <p>{selectedOrder.shipping_service_name || "-"}</p>
+                      <p className="text-[var(--color-muted)]">
+                        {selectedOrder.shipping_delivery_days} dias - {formatCents(selectedOrder.shipping_cents)}
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
 

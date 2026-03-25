@@ -87,6 +87,7 @@ export type OrderItemCreate = {
 };
 
 export type OrderCreatePayload = {
+  delivery_method?: "shipping" | "pickup";
   customer_name?: string;
   customer_email?: string;
   customer_phone?: string;
@@ -132,6 +133,7 @@ export type OrderItemRead = {
 export type OrderRead = {
   id: string;
   status: string;
+  delivery_method: "shipping" | "pickup";
   customer_id: number | null;
   customer_name: string | null;
   customer_email: string | null;
@@ -307,9 +309,10 @@ export function syncMercadoPagoPayment(payload: MercadoPagoPaymentSyncPayload): 
   })
 }
 
-export function listAdminProducts(params?: { active?: boolean; limit?: number; offset?: number }): Promise<Product[]> {
+export function listAdminProducts(params?: { active?: boolean; query?: string; limit?: number; offset?: number }): Promise<Product[]> {
   const query = new URLSearchParams()
   if (params?.active !== undefined) query.set("active", String(params.active))
+  if (params?.query) query.set("query", params.query)
   if (params?.limit) query.set("limit", String(params.limit))
   if (params?.offset) query.set("offset", String(params.offset))
   const queryString = query.toString()
@@ -345,6 +348,7 @@ export function createAdminOrder(payload: OrderCreatePayload): Promise<OrderRead
 
 export function listAdminOrders(params?: {
   status?: string;
+  source?: string;
   start_date?: string;
   end_date?: string;
   limit?: number;
@@ -352,6 +356,7 @@ export function listAdminOrders(params?: {
 }): Promise<OrderRead[]> {
   const query = new URLSearchParams()
   if (params?.status) query.set("status", params.status)
+  if (params?.source) query.set("source", params.source)
   if (params?.start_date) query.set("start_date", params.start_date)
   if (params?.end_date) query.set("end_date", params.end_date)
   if (params?.limit) query.set("limit", String(params.limit))

@@ -1,6 +1,11 @@
 from enum import Enum
 
 
+class DeliveryMethod(str, Enum):
+    SHIPPING = "shipping"
+    PICKUP = "pickup"
+
+
 class OrderStatus(str, Enum):
     PENDING = "pending"
     PAID = "paid"

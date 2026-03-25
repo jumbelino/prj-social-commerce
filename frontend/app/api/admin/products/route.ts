@@ -49,7 +49,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const query = new URLSearchParams();
-  for (const key of ["active", "limit", "offset"]) {
+  for (const key of ["active", "query", "limit", "offset"]) {
     const value = searchParams.get(key);
     if (value !== null && value.trim() !== "") {
       query.set(key, value);

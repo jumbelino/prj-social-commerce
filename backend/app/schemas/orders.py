@@ -2,9 +2,9 @@ from datetime import datetime
 from typing import ClassVar, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.schemas.enums import OrderStatus
+from app.schemas.enums import DeliveryMethod, OrderStatus
 
 
 class OrderItemCreate(BaseModel):
@@ -36,11 +36,20 @@ class OrderShippingSelection(BaseModel):
 
 
 class OrderCreate(BaseModel):
+    delivery_method: DeliveryMethod = DeliveryMethod.SHIPPING
     customer_name: str | None = Field(default=None, max_length=255)
     customer_email: str | None = Field(default=None, max_length=255)
     customer_phone: str | None = Field(default=None, max_length=40)
     items: list[OrderItemCreate] = Field(min_length=1)
-    shipping: OrderShippingSelection
+    shipping: OrderShippingSelection | None = None
+
+    @model_validator(mode="after")
+    def validate_delivery_method(self) -> "OrderCreate":
+        if self.delivery_method == DeliveryMethod.SHIPPING and self.shipping is None:
+            raise ValueError("shipping is required when delivery_method is shipping")
+        if self.delivery_method == DeliveryMethod.PICKUP and self.shipping is not None:
+            raise ValueError("shipping must be omitted when delivery_method is pickup")
+        return self
 
 
 class OrderItemRead(BaseModel):
@@ -59,6 +68,7 @@ class OrderRead(BaseModel):
 
     id: UUID
     status: str
+    delivery_method: DeliveryMethod
     customer_id: int | None
     customer_name: str | None
     customer_email: str | None

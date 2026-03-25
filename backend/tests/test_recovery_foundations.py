@@ -113,6 +113,7 @@ def test_storefront_order_creation_links_customer_record(client: TestClient, db_
 
     assert response.status_code == 201
     payload = response.json()
+    assert payload["delivery_method"] == "shipping"
     assert payload["customer_id"] is not None
     assert payload["expires_at"] is not None
 
@@ -160,6 +161,114 @@ def test_admin_order_cancellation_releases_reserved_inventory(client: TestClient
     refreshed_variant = db_session.get(ProductVariant, variant.id)
     assert refreshed_variant is not None
     assert refreshed_variant.stock == 6
+
+
+def test_admin_order_creation_supports_pickup_without_shipping(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, variant = _seed_product_with_variant(db_session, stock=5, price_cents=2400)
+
+    response = client.post(
+        "/admin/orders",
+        json={
+            "delivery_method": "pickup",
+            "customer_name": "Retirada Cliente",
+            "customer_email": "retirada@example.com",
+            "items": [{"variant_id": str(variant.id), "quantity": 2}],
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["source"] == "admin_assisted"
+    assert payload["delivery_method"] == "pickup"
+    assert payload["subtotal_cents"] == 4800
+    assert payload["shipping_cents"] == 0
+    assert payload["total_cents"] == 4800
+    assert payload["shipping_provider"] is None
+    assert payload["shipping_service_id"] is None
+    assert payload["shipping_service_name"] is None
+    assert payload["shipping_delivery_days"] is None
+    assert payload["shipping_from_postal_code"] is None
+    assert payload["shipping_to_postal_code"] is None
+    assert payload["shipping_quote_json"] is None
+
+    db_session.expire_all()
+    refreshed_variant = db_session.get(ProductVariant, variant.id)
+    assert refreshed_variant is not None
+    assert refreshed_variant.stock == 3
+
+
+def test_admin_orders_can_filter_by_source(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, storefront_variant = _seed_product_with_variant(db_session, stock=6, price_cents=1800)
+    _, admin_variant = _seed_product_with_variant(db_session, stock=6, price_cents=2200)
+
+    storefront_response = client.post(
+        "/orders",
+        json={
+            "customer_name": "Storefront Buyer",
+            "customer_email": "storefront@example.com",
+            "items": [{"variant_id": str(storefront_variant.id), "quantity": 1}],
+            "shipping": {
+                "provider": "melhor_envio",
+                "service_id": 1,
+                "service_name": "PAC",
+                "delivery_days": 4,
+                "price_cents": 900,
+                "from_postal_code": "01018020",
+                "to_postal_code": "01018020",
+                "quote_json": {"id": 1},
+            },
+        },
+    )
+    assert storefront_response.status_code == 201
+
+    admin_response = client.post(
+        "/admin/orders",
+        json={
+            "delivery_method": "pickup",
+            "customer_name": "Admin Buyer",
+            "customer_email": "admin-assisted@example.com",
+            "items": [{"variant_id": str(admin_variant.id), "quantity": 1}],
+        },
+    )
+    assert admin_response.status_code == 201
+
+    filtered = client.get("/admin/orders", params={"source": "admin_assisted"})
+    assert filtered.status_code == 200
+    payload = filtered.json()
+    assert len(payload) == 1
+    assert payload[0]["source"] == "admin_assisted"
+    assert payload[0]["delivery_method"] == "pickup"
+
+
+def test_products_list_supports_query_filter_for_title_and_sku(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    first_product, first_variant = _seed_product_with_variant(db_session, stock=5, price_cents=1200)
+    second_product, second_variant = _seed_product_with_variant(db_session, stock=5, price_cents=1300)
+
+    first_product.title = "Camiseta Noturna"
+    first_variant.sku = "SKU-NOTURNA-001"
+    second_product.title = "Moletom Solar"
+    second_variant.sku = "SKU-SOLAR-001"
+    db_session.add_all([first_product, first_variant, second_product, second_variant])
+    db_session.commit()
+
+    by_title = client.get("/products", params={"query": "Noturna"})
+    assert by_title.status_code == 200
+    by_title_payload = by_title.json()
+    assert [product["id"] for product in by_title_payload] == [str(first_product.id)]
+
+    by_sku = client.get("/products", params={"query": "SOLAR-001"})
+    assert by_sku.status_code == 200
+    by_sku_payload = by_sku.json()
+    assert [product["id"] for product in by_sku_payload] == [str(second_product.id)]
 
 
 def test_expired_order_becomes_cancelled_and_restores_inventory_before_payment(
