@@ -105,6 +105,7 @@ export function ProductImagesManager({
   const [removingImageId, setRemovingImageId] = useState<number | null>(null);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -133,10 +134,11 @@ export function ProductImagesManager({
         position: idx,
       }));
 
+      const previousImages = images.map((img) => ({ ...img }));
       onImagesChange(newImages);
 
       try {
-        await fetch(`/api/admin/products/${productId}/images/reorder`, {
+        const response = await fetch(`/api/admin/products/${productId}/images/reorder`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
@@ -146,8 +148,14 @@ export function ProductImagesManager({
           }),
           credentials: "include",
         });
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || "Falha ao reordenar imagens");
+        }
+        setErrorMessage(null);
       } catch (error) {
-        console.error("Failed to persist reorder:", error);
+        onImagesChange(previousImages);
+        setErrorMessage(error instanceof Error ? error.message : "Falha ao reordenar imagens");
       }
     },
     [images, onImagesChange, productId]
@@ -167,6 +175,7 @@ export function ProductImagesManager({
     }
 
     setIsUploading(true);
+    setErrorMessage(null);
 
     try {
       const formData = new FormData();
@@ -191,8 +200,7 @@ export function ProductImagesManager({
       const updatedImages = [...images, { ...newImage, position: images.length }];
       onImagesChange(updatedImages);
     } catch (error) {
-      console.error("Upload failed:", error);
-      alert(error instanceof Error ? error.message : "Erro ao carregar imagem");
+      setErrorMessage(error instanceof Error ? error.message : "Erro ao carregar imagem");
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
@@ -212,6 +220,7 @@ export function ProductImagesManager({
     }
 
     setIsDeleting(true);
+    setErrorMessage(null);
 
     try {
       const response = await fetch(
@@ -233,8 +242,7 @@ export function ProductImagesManager({
 
       onImagesChange(remainingImages);
     } catch (error) {
-      console.error("Delete failed:", error);
-      alert(error instanceof Error ? error.message : "Erro ao remover imagem");
+      setErrorMessage(error instanceof Error ? error.message : "Erro ao remover imagem");
     } finally {
       setIsDeleting(false);
       setShowRemoveConfirm(false);
@@ -251,6 +259,12 @@ export function ProductImagesManager({
 
   return (
     <div className="space-y-4">
+      {errorMessage && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {errorMessage}
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <h3 className="font-display text-lg font-semibold text-slate-900">
           Imagens do Produto

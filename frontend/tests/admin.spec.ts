@@ -238,7 +238,7 @@ test.describe("Admin Dashboard", () => {
   test("quick actions are visible", async ({ page }) => {
     await gotoCurrentOriginPath(page, "/admin");
 
-    await expect(page.locator("text=Novo Pedido")).toBeVisible();
+    await expect(page.locator("text=Ver Pedidos")).toBeVisible();
     await expect(page.locator("text=Novo Produto")).toBeVisible();
     await expect(page.locator("text=Pedidos Pendentes")).toBeVisible();
   });

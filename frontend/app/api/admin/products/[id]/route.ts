@@ -12,6 +12,20 @@ function unauthorizedResponse() {
   return NextResponse.json({ detail: "Unauthorized." }, { status: 401 });
 }
 
+function isAdminSession(
+  session: unknown
+): session is { accessToken: string; roles?: string[] } {
+  if (!session || typeof session !== "object") {
+    return false;
+  }
+  const candidate = session as { accessToken?: unknown; roles?: unknown };
+  return (
+    typeof candidate.accessToken === "string" &&
+    Array.isArray(candidate.roles) &&
+    candidate.roles.includes("admin")
+  );
+}
+
 async function relayJsonOrText(response: Response) {
   const contentType = response.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {
@@ -32,7 +46,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
-  if (!session?.accessToken) {
+  if (!isAdminSession(session)) {
     return unauthorizedResponse();
   }
 
@@ -61,7 +75,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
-  if (!session?.accessToken) {
+  if (!isAdminSession(session)) {
     return unauthorizedResponse();
   }
 
@@ -100,7 +114,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
-  if (!session?.accessToken) {
+  if (!isAdminSession(session)) {
     return unauthorizedResponse();
   }
 

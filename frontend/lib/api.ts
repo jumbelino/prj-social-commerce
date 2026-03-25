@@ -313,17 +313,17 @@ export function listAdminProducts(params?: { active?: boolean; limit?: number; o
   if (params?.limit) query.set("limit", String(params.limit))
   if (params?.offset) query.set("offset", String(params.offset))
   const queryString = query.toString()
-  return requestJson<Product[]>(`/products${queryString ? `?${queryString}` : ""}`)
+  return requestNextApi<Product[]>(`/api/admin/products${queryString ? `?${queryString}` : ""}`)
 }
 
 export function deleteAdminProduct(productId: string): Promise<void> {
-  return requestJson<void>(`/products/${productId}`, {
+  return requestNextApi<void>(`/api/admin/products/${productId}`, {
     method: "DELETE",
   })
 }
 
 export function toggleAdminProductActive(productId: string, active: boolean): Promise<Product> {
-  return requestJson<Product>(`/products/${productId}`, {
+  return requestNextApi<Product>(`/api/admin/products/${productId}`, {
     method: "PUT",
     body: JSON.stringify({ active }),
   })
@@ -343,9 +343,17 @@ export function createAdminOrder(payload: OrderCreatePayload): Promise<OrderRead
   })
 }
 
-export function listAdminOrders(params?: { status?: string; limit?: number; offset?: number }): Promise<OrderRead[]> {
+export function listAdminOrders(params?: {
+  status?: string;
+  start_date?: string;
+  end_date?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<OrderRead[]> {
   const query = new URLSearchParams()
   if (params?.status) query.set("status", params.status)
+  if (params?.start_date) query.set("start_date", params.start_date)
+  if (params?.end_date) query.set("end_date", params.end_date)
   if (params?.limit) query.set("limit", String(params.limit))
   if (params?.offset) query.set("offset", String(params.offset))
   const queryString = query.toString()
@@ -369,7 +377,7 @@ export function updateAdminOrderStatus(orderId: string, status: string): Promise
 
 export type CustomerRead = {
   id: number
-  name: string
+  name: string | null
   email: string | null
   phone: string | null
   created_at: string
@@ -400,7 +408,7 @@ export function createAdminCustomer(payload: CustomerCreatePayload): Promise<Cus
 
 export type CustomerWithOrders = {
   id: number
-  name: string
+  name: string | null
   email: string | null
   phone: string | null
   created_at: string

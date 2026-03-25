@@ -12,12 +12,26 @@ function unauthorizedResponse() {
   return NextResponse.json({ detail: "Unauthorized." }, { status: 401 });
 }
 
+function isAdminSession(
+  session: unknown
+): session is { accessToken: string; roles?: string[] } {
+  if (!session || typeof session !== "object") {
+    return false;
+  }
+  const candidate = session as { accessToken?: unknown; roles?: unknown };
+  return (
+    typeof candidate.accessToken === "string" &&
+    Array.isArray(candidate.roles) &&
+    candidate.roles.includes("admin")
+  );
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
-  if (!session?.accessToken) {
+  if (!isAdminSession(session)) {
     return unauthorizedResponse();
   }
 

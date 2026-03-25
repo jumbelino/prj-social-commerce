@@ -10,7 +10,7 @@ class CustomerRead(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(from_attributes=True)
 
     id: int
-    name: str
+    name: str | None
     email: str | None
     phone: str | None
     created_at: datetime

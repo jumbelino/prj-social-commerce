@@ -8,7 +8,6 @@ const navItems = [
   { label: "Produtos", href: "/admin/products" },
   { label: "Clientes", href: "/admin/customers" },
   { label: "Pedidos", href: "/admin/orders" },
-  { label: "Venda Assistida", href: "/admin/assisted-sale" },
 ];
 
 export function AdminSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {

@@ -18,16 +18,16 @@ export function CustomersClient() {
   const [searchQuery, setSearchQuery] = useState("");
   
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState<number | undefined>(undefined);
+  const [hasNextPage, setHasNextPage] = useState(false);
 
   const loadCustomers = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
       const offset = (page - 1) * PAGE_SIZE;
-      const data = await searchAdminCustomers({ query: searchQuery || undefined, limit: PAGE_SIZE, offset });
-      setCustomers(data);
-      setTotal(data.length < PAGE_SIZE ? offset + data.length : undefined);
+      const data = await searchAdminCustomers({ query: searchQuery || undefined, limit: PAGE_SIZE + 1, offset });
+      setHasNextPage(data.length > PAGE_SIZE);
+      setCustomers(data.slice(0, PAGE_SIZE));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar clientes");
     } finally {
@@ -48,7 +48,11 @@ export function CustomersClient() {
   };
 
   const columns: Column<CustomerRead>[] = [
-    { key: "name", header: "Nome" },
+    {
+      key: "name",
+      header: "Nome",
+      render: (c) => c.name || "-",
+    },
     { key: "email", header: "Email" },
     { key: "phone", header: "Telefone" },
     { 
@@ -88,7 +92,7 @@ export function CustomersClient() {
         onRowClick={handleRowClick}
         page={page}
         pageSize={PAGE_SIZE}
-        total={total}
+        hasNext={hasNextPage}
         onPageChange={handlePageChange}
         emptyMessage="Nenhum cliente encontrado"
         isLoading={isLoading}

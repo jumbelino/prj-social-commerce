@@ -21,6 +21,8 @@ admin_product_images_router = APIRouter(
     dependencies=[Depends(require_admin)],
 )
 
+MAX_IMAGES_PER_PRODUCT = 10
+
 
 class ProductImagesReorderRequest(BaseModel):
     image_ids_in_order: list[int]
@@ -50,6 +52,14 @@ def upload_product_image(
     storage: Annotated[MinioStorage, Depends(get_minio_storage)],
 ) -> ProductImage:
     _assert_product_exists(db, product_id)
+    current_count = db.execute(
+        select(func.count(ProductImage.id)).where(ProductImage.product_id == product_id)
+    ).scalar_one()
+    if current_count >= MAX_IMAGES_PER_PRODUCT:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"maximum of {MAX_IMAGES_PER_PRODUCT} images per product reached",
+        )
 
     object_key = _build_object_key(product_id, file.filename)
     storage.upload_file(object_key=object_key, file_obj=file.file, content_type=file.content_type)

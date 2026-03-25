@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type Response } from "@playwright/test";
 import path from "path";
 
 const ADMIN_EMAIL = "dev-admin";

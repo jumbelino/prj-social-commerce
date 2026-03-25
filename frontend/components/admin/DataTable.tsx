@@ -15,6 +15,7 @@ export interface DataTableProps<T> {
   page?: number;
   pageSize?: number;
   total?: number;
+  hasNext?: boolean;
   onPageChange?: (page: number) => void;
   emptyMessage?: string;
   isLoading?: boolean;
@@ -27,12 +28,13 @@ export function DataTable<T extends Record<string, unknown>>({
   page = 1,
   pageSize = 10,
   total,
+  hasNext = false,
   onPageChange,
   emptyMessage = "No data available",
   isLoading = false,
 }: DataTableProps<T>) {
-  const totalPages = total ? Math.ceil(total / pageSize) : 1;
-  const showPagination = total !== undefined && total > pageSize;
+  const totalPages = total ? Math.ceil(total / pageSize) : undefined;
+  const showPagination = total !== undefined ? total > pageSize : hasNext || page > 1;
 
   if (isLoading) {
     return (
@@ -102,8 +104,9 @@ export function DataTable<T extends Record<string, unknown>>({
       {showPagination && (
         <div className="flex items-center justify-between border-t border-[var(--color-line)] px-4 py-3">
           <div className="text-xs text-[var(--color-muted)]">
-            Showing {(page - 1) * pageSize + 1} to{" "}
-            {Math.min(page * pageSize, total)} of {total} results
+            {total !== undefined
+              ? `Showing ${(page - 1) * pageSize + 1} to ${Math.min(page * pageSize, total)} of ${total} results`
+              : `Showing page ${page}`}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -114,11 +117,11 @@ export function DataTable<T extends Record<string, unknown>>({
               Previous
             </button>
             <span className="text-xs text-[var(--color-muted)]">
-              Page {page} of {totalPages}
+              {totalPages ? `Page ${page} of ${totalPages}` : `Page ${page}`}
             </span>
             <button
               onClick={() => onPageChange?.(page + 1)}
-              disabled={page >= totalPages}
+              disabled={totalPages ? page >= totalPages : !hasNext}
               className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-1.5 text-xs font-medium transition hover:border-[var(--color-muted)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Next

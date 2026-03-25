@@ -283,6 +283,20 @@ export default function OrderDetailPage() {
           </section>
 
           <section className="bg-[var(--color-card)] rounded-lg border border-[var(--color-line)] p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Pagamento</h2>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-[var(--color-muted)]">Status</span>
+                <span className="text-slate-900">{order.latest_payment_status || "sem registro"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--color-muted)]">ID externo</span>
+                <span className="font-mono text-slate-900">{order.latest_payment_external_id || "-"}</span>
+              </div>
+            </div>
+          </section>
+
+          <section className="bg-[var(--color-card)] rounded-lg border border-[var(--color-line)] p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-4">Atualizar Status</h2>
             <div className="flex flex-wrap gap-2">
               {STATUSES.map((status) => {
