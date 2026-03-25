@@ -69,6 +69,7 @@ def test_order_create_persists_shipping_quote_json_and_defaults_origin_postal_co
 
     assert response.status_code == 201
     payload = response.json()
+    assert payload["delivery_method"] == "shipping"
     assert payload["shipping_from_postal_code"] == "22222222"
     assert payload["shipping_to_postal_code"] == "01310930"
     assert payload["shipping_quote_json"] == quote_snapshot

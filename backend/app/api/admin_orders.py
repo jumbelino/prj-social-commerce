@@ -12,7 +12,7 @@ from ..auth.dependencies import Principal, require_admin
 from ..db.session import get_db_session
 from ..integrations.melhor_envio import read_shipping_origin_postal_code
 from ..models.order import Order
-from ..schemas.enums import OrderStatus
+from ..schemas.enums import DeliveryMethod, OrderStatus
 from ..schemas.orders import OrderCreate, OrderRead, OrderStatusUpdate
 from ..services import create_order_from_payload, expire_order_if_needed, release_inventory_for_order
 
@@ -26,12 +26,20 @@ def create_admin_order(
     principal: Annotated[Principal, Depends(require_admin)],
 ) -> Order:
     """Create an order on behalf of a customer (assisted sale)."""
-    shipping_from_postal_code = payload.shipping.from_postal_code
-    if shipping_from_postal_code is None:
-        try:
-            shipping_from_postal_code = read_shipping_origin_postal_code()
-        except RuntimeError as exc:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    shipping_from_postal_code: str | None = None
+    if payload.delivery_method == DeliveryMethod.SHIPPING:
+        shipping = payload.shipping
+        if shipping is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="shipping is required when delivery_method is shipping",
+            )
+        shipping_from_postal_code = shipping.from_postal_code
+        if shipping_from_postal_code is None:
+            try:
+                shipping_from_postal_code = read_shipping_origin_postal_code()
+            except RuntimeError as exc:
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 
     return create_order_from_payload(
         db,
@@ -46,6 +54,7 @@ def list_admin_orders(
     db: Annotated[Session, Depends(get_db_session)],
     principal: Annotated[Principal, Depends(require_admin)],
     status: str | None = None,
+    source: str | None = None,
     start_date: date | None = None,
     end_date: date | None = None,
     limit: int = 50,
@@ -54,6 +63,8 @@ def list_admin_orders(
     stmt = select(Order).options(selectinload(Order.items), selectinload(Order.payments))
     if status:
         stmt = stmt.where(Order.status == status)
+    if source:
+        stmt = stmt.where(Order.source == source)
     if start_date is not None:
         stmt = stmt.where(Order.created_at >= start_date)
     if end_date is not None:

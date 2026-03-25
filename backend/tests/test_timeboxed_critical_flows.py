@@ -68,6 +68,7 @@ def test_order_create_decrements_stock(client: TestClient, db_session: Session) 
     payload = response.json()
     assert payload["status"] == "pending"
     assert payload["source"] == "storefront"
+    assert payload["delivery_method"] == "shipping"
     assert payload["subtotal_cents"] == 2700
     assert payload["shipping_cents"] == 0
     assert payload["shipping_provider"] == "melhor_envio"
@@ -115,11 +116,32 @@ def test_order_create_uses_origin_postal_code_from_env_when_missing_in_payload(
 
     assert response.status_code == 201
     payload = response.json()
+    assert payload["delivery_method"] == "shipping"
     assert payload["subtotal_cents"] == 3000
     assert payload["shipping_cents"] == 850
     assert payload["total_cents"] == 3850
     assert payload["shipping_from_postal_code"] == "22222222"
     assert payload["shipping_to_postal_code"] == "01310930"
+
+
+def test_storefront_order_create_rejects_pickup_delivery_method(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    variant = _seed_variant(db_session, stock=4, price_cents=1500)
+
+    response = client.post(
+        "/orders",
+        json={
+            "delivery_method": "pickup",
+            "customer_name": "Pickup Buyer",
+            "customer_email": "pickup@example.com",
+            "items": [{"variant_id": str(variant.id), "quantity": 1}],
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "storefront orders currently support only shipping delivery_method"
 
 
 def test_payment_creation_idempotency(

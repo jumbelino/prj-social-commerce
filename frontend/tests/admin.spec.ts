@@ -685,3 +685,351 @@ test.describe("Admin Orders", () => {
     }
   });
 });
+
+test.describe("Admin Assisted Sale", () => {
+  test.beforeEach(async ({ page }) => {
+    await loginAsAdmin(page);
+  });
+
+  test("can create an assisted order with shipping and existing customer", async ({ page }) => {
+    const product = {
+      id: "product-assisted-001",
+      title: "Camiseta Operacional",
+      description: "Modelo basico para venda assistida",
+      active: true,
+      created_at: new Date().toISOString(),
+      images: [],
+      variants: [
+        {
+          id: "variant-assisted-001",
+          product_id: "product-assisted-001",
+          sku: "CAM-OPS-M",
+          price_cents: 7900,
+          attributes_json: { tamanho: "M", cor: "Preta" },
+          stock: 8,
+          weight_kg: null,
+          width_cm: null,
+          height_cm: null,
+          length_cm: null,
+        },
+      ],
+    };
+
+    const customer = {
+      id: 10,
+      name: "Cliente Assistido",
+      email: "assistido@example.com",
+      phone: "+5511999999999",
+      created_at: new Date().toISOString(),
+      total_orders: 3,
+    };
+
+    let createOrderPayload: { delivery_method?: unknown; shipping?: unknown } | null = null;
+    let copiedText = "";
+
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        value: {
+          writeText: async (value: string) => {
+            (window as Window & { __copiedText?: string }).__copiedText = value;
+          },
+        },
+        configurable: true,
+      });
+    });
+
+    await page.route("**/api/admin/products*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([product]),
+      });
+    });
+
+    await page.route("**/api/admin/customers*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([customer]),
+      });
+    });
+
+    await page.route("**/shipping/quotes", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          options: [
+            {
+              service_id: 1,
+              name: "PAC",
+              price_cents: 1450,
+              delivery_days: 4,
+              raw_json: { id: 1, service: "PAC" },
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.route("**/api/admin/orders*", async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.continue();
+        return;
+      }
+
+      createOrderPayload = JSON.parse(route.request().postData() || "{}") as Record<string, unknown>;
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "00000000-0000-0000-0000-00000000a001",
+          status: "pending",
+          delivery_method: "shipping",
+          customer_id: 10,
+          customer_name: "Cliente Assistido",
+          customer_email: "assistido@example.com",
+          customer_phone: "+5511999999999",
+          source: "admin_assisted",
+          subtotal_cents: 15800,
+          shipping_cents: 1450,
+          shipping_provider: "melhor_envio",
+          shipping_service_id: 1,
+          shipping_service_name: "PAC",
+          shipping_delivery_days: 4,
+          shipping_from_postal_code: "01018020",
+          shipping_to_postal_code: "01310930",
+          shipping_quote_json: { id: 1, service: "PAC" },
+          total_cents: 17250,
+          expires_at: null,
+          inventory_released_at: null,
+          latest_payment_status: null,
+          latest_payment_external_id: null,
+          created_at: new Date().toISOString(),
+          items: [
+            {
+              id: 1,
+              order_id: "00000000-0000-0000-0000-00000000a001",
+              variant_id: "variant-assisted-001",
+              quantity: 2,
+              unit_price_cents: 7900,
+              total_cents: 15800,
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.route("**/payments/mercado-pago/preference", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          preference_id: "pref-assisted-001",
+          init_point: "https://sandbox.mercadopago.com.br/checkout/start?pref_id=pref-assisted-001",
+          sandbox_init_point: "https://sandbox.mercadopago.com.br/checkout/start?pref_id=pref-assisted-001",
+          checkout_url: "https://sandbox.mercadopago.com.br/checkout/start?pref_id=pref-assisted-001",
+          is_sandbox: true,
+        }),
+      });
+    });
+
+    await gotoCurrentOriginPath(page, "/admin/assisted-sale");
+
+    await expect(page.locator("h1")).toContainText("Venda Assistida");
+
+    await page.locator("button").filter({ hasText: "Camiseta Operacional" }).first().click();
+    await page.getByLabel("Quantidade para adicionar").fill("2");
+    await page.getByRole("button", { name: "Adicionar item ao pedido" }).click();
+
+    await page.getByLabel("Buscar cliente existente").fill("Cliente");
+    await page.getByRole("button", { name: /Cliente Assistido/i }).click();
+
+    await page.getByLabel("CEP para frete").fill("01310930");
+    await page.getByRole("button", { name: "Calcular frete" }).click();
+    await page.getByRole("radio").check();
+
+    await expect(page.getByRole("button", { name: "Criar pedido" })).toBeEnabled();
+    await page.getByRole("button", { name: "Criar pedido" }).click();
+
+    await expect(page.getByText(/criado com sucesso/i)).toBeVisible();
+    expect(createOrderPayload).not.toBeNull();
+    if (createOrderPayload === null) {
+      throw new Error("Expected assisted sale payload to be captured");
+    }
+    const capturedShippingPayload = createOrderPayload as { delivery_method?: unknown; shipping?: unknown };
+    expect(capturedShippingPayload.delivery_method).toBe("shipping");
+    expect(capturedShippingPayload.shipping).toBeTruthy();
+
+    await expect(page.getByRole("button", { name: "Gerar link de pagamento" })).toBeVisible();
+    await page.getByRole("button", { name: "Gerar link de pagamento" }).click();
+
+    await expect(page.getByText("Link de pagamento gerado com sucesso.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Copiar link" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Abrir checkout" })).toHaveAttribute(
+      "href",
+      /mercadopago\.com\.br\/checkout\/start/,
+    );
+    await expect(page.getByRole("link", { name: "Ver pedido" })).toHaveAttribute(
+      "href",
+      /\/admin\/orders\/00000000-0000-0000-0000-00000000a001$/,
+    );
+
+    await page.getByRole("button", { name: "Copiar link" }).click();
+    copiedText = await page.evaluate(() => (window as Window & { __copiedText?: string }).__copiedText ?? "");
+    expect(copiedText).toContain("mercadopago.com.br/checkout/start");
+  });
+
+  test("pickup does not require shipping and clears shipping state", async ({ page }) => {
+    const product = {
+      id: "product-assisted-002",
+      title: "Camiseta Pickup",
+      description: null,
+      active: true,
+      created_at: new Date().toISOString(),
+      images: [],
+      variants: [
+        {
+          id: "variant-assisted-002",
+          product_id: "product-assisted-002",
+          sku: "CAM-PICKUP-U",
+          price_cents: 6500,
+          attributes_json: { tamanho: "U" },
+          stock: 5,
+          weight_kg: null,
+          width_cm: null,
+          height_cm: null,
+          length_cm: null,
+        },
+      ],
+    };
+
+    let createOrderPayload: { delivery_method?: unknown; shipping?: unknown } | null = null;
+
+    await page.route("**/api/admin/products*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([product]),
+      });
+    });
+
+    await page.route("**/api/admin/customers*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+    });
+
+    await page.route("**/shipping/quotes", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          options: [
+            {
+              service_id: 2,
+              name: "SEDEX",
+              price_cents: 2200,
+              delivery_days: 2,
+              raw_json: { id: 2, service: "SEDEX" },
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.route("**/api/admin/orders*", async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.continue();
+        return;
+      }
+
+      createOrderPayload = JSON.parse(route.request().postData() || "{}") as Record<string, unknown>;
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "00000000-0000-0000-0000-00000000a002",
+          status: "pending",
+          delivery_method: "pickup",
+          customer_id: null,
+          customer_name: "Cliente Pickup",
+          customer_email: "pickup@example.com",
+          customer_phone: null,
+          source: "admin_assisted",
+          subtotal_cents: 6500,
+          shipping_cents: 0,
+          shipping_provider: null,
+          shipping_service_id: null,
+          shipping_service_name: null,
+          shipping_delivery_days: null,
+          shipping_from_postal_code: null,
+          shipping_to_postal_code: null,
+          shipping_quote_json: null,
+          total_cents: 6500,
+          expires_at: null,
+          inventory_released_at: null,
+          latest_payment_status: null,
+          latest_payment_external_id: null,
+          created_at: new Date().toISOString(),
+          items: [
+            {
+              id: 1,
+              order_id: "00000000-0000-0000-0000-00000000a002",
+              variant_id: "variant-assisted-002",
+              quantity: 1,
+              unit_price_cents: 6500,
+              total_cents: 6500,
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.route("**/payments/mercado-pago/preference", async (route) => {
+      await route.fulfill({
+        status: 502,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "Mercado Pago indisponivel no momento." }),
+      });
+    });
+
+    await gotoCurrentOriginPath(page, "/admin/assisted-sale");
+
+    await page.locator("button").filter({ hasText: "Camiseta Pickup" }).first().click();
+    await page.getByRole("button", { name: "Adicionar item ao pedido" }).click();
+
+    await page.getByLabel("Nome do cliente").fill("Cliente Pickup");
+    await page.getByLabel("Email do cliente").fill("pickup@example.com");
+
+    await page.getByLabel("CEP para frete").fill("01310930");
+    await page.getByRole("button", { name: "Calcular frete" }).click();
+    await expect(page.getByText("SEDEX")).toBeVisible();
+
+    await page.getByRole("button", { name: "Retirada" }).click();
+    await expect(page.getByText("Retirada selecionada. O pedido sera criado sem frete calculado.")).toBeVisible();
+    await expect(page.getByText("SEDEX")).toHaveCount(0);
+
+    await expect(page.getByRole("button", { name: "Criar pedido" })).toBeEnabled();
+    await page.getByRole("button", { name: "Criar pedido" }).click();
+
+    await expect(page.getByText(/criado com sucesso/i)).toBeVisible();
+    expect(createOrderPayload).not.toBeNull();
+    if (createOrderPayload === null) {
+      throw new Error("Expected assisted sale payload to be captured");
+    }
+    const capturedPickupPayload = createOrderPayload as { delivery_method?: unknown; shipping?: unknown };
+    expect(capturedPickupPayload.delivery_method).toBe("pickup");
+    expect(capturedPickupPayload.shipping).toBeUndefined();
+
+    await expect(page.getByRole("button", { name: "Gerar link de pagamento" })).toBeVisible();
+    await page.getByRole("button", { name: "Gerar link de pagamento" }).click();
+    await expect(page.getByText("Mercado Pago indisponivel no momento.")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Ver pedido" })).toHaveAttribute(
+      "href",
+      /\/admin\/orders\/00000000-0000-0000-0000-00000000a002$/,
+    );
+  });
+});

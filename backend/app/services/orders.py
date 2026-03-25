@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models.order import Order, OrderItem
 from app.models.product import ProductVariant
+from app.schemas.enums import DeliveryMethod
 from app.schemas.orders import OrderCreate
 from app.services.customers import upsert_customer
 from app.services.inventory import default_order_expiration
@@ -18,7 +19,7 @@ def create_order_from_payload(
     *,
     payload: OrderCreate,
     source: Literal["storefront", "admin_assisted"],
-    shipping_from_postal_code: str,
+    shipping_from_postal_code: str | None = None,
 ) -> Order:
     requested_quantities: dict[UUID, int] = defaultdict(int)
     for item in payload.items:
@@ -63,9 +64,40 @@ def create_order_from_payload(
         phone=payload.customer_phone,
     )
 
-    shipping_cents = payload.shipping.price_cents
+    shipping = payload.shipping
+    shipping_cents = 0
+    shipping_provider: str | None = None
+    shipping_service_id: int | None = None
+    shipping_service_name: str | None = None
+    shipping_delivery_days: int | None = None
+    shipping_to_postal_code: str | None = None
+    shipping_quote_json: dict[str, object] | None = None
+
+    if payload.delivery_method == DeliveryMethod.SHIPPING:
+        if shipping is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="shipping is required when delivery_method is shipping",
+            )
+        if shipping_from_postal_code is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="shipping origin postal code is required for shipping orders",
+            )
+
+        shipping_cents = shipping.price_cents
+        shipping_provider = shipping.provider
+        shipping_service_id = shipping.service_id
+        shipping_service_name = shipping.service_name
+        shipping_delivery_days = shipping.delivery_days
+        shipping_to_postal_code = shipping.to_postal_code
+        shipping_quote_json = shipping.quote_json
+    else:
+        shipping_from_postal_code = None
+
     order = Order(
         status="pending",
+        delivery_method=payload.delivery_method.value,
         customer_id=None if customer is None else customer.id,
         customer_name=payload.customer_name if customer is None else customer.name,
         customer_email=payload.customer_email if customer is None else customer.email,
@@ -73,13 +105,13 @@ def create_order_from_payload(
         source=source,
         subtotal_cents=0,
         shipping_cents=shipping_cents,
-        shipping_provider=payload.shipping.provider,
-        shipping_service_id=payload.shipping.service_id,
-        shipping_service_name=payload.shipping.service_name,
-        shipping_delivery_days=payload.shipping.delivery_days,
+        shipping_provider=shipping_provider,
+        shipping_service_id=shipping_service_id,
+        shipping_service_name=shipping_service_name,
+        shipping_delivery_days=shipping_delivery_days,
         shipping_from_postal_code=shipping_from_postal_code,
-        shipping_to_postal_code=payload.shipping.to_postal_code,
-        shipping_quote_json=payload.shipping.quote_json,
+        shipping_to_postal_code=shipping_to_postal_code,
+        shipping_quote_json=shipping_quote_json,
         total_cents=0,
         expires_at=default_order_expiration(),
     )

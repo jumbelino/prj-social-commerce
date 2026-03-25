@@ -17,6 +17,14 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   cancelled: [],
 };
 
+function formatOrderSource(source: string): string {
+  return source === "admin_assisted" ? "Venda assistida" : "Loja";
+}
+
+function formatDeliveryMethod(deliveryMethod: OrderRead["delivery_method"]): string {
+  return deliveryMethod === "pickup" ? "Retirada" : "Envio";
+}
+
 export default function OrderDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -185,7 +193,11 @@ export default function OrderDetailPage() {
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Origem</p>
-                <p className="text-sm text-slate-900 mt-1 capitalize">{order.source}</p>
+                <p className="text-sm text-slate-900 mt-1">{formatOrderSource(order.source)}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Entrega</p>
+                <p className="text-sm text-slate-900 mt-1">{formatDeliveryMethod(order.delivery_method)}</p>
               </div>
             </div>
           </section>
@@ -236,30 +248,36 @@ export default function OrderDetailPage() {
 
           <section className="bg-[var(--color-card)] rounded-lg border border-[var(--color-line)] p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-4">Entrega</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Servico</p>
-                <p className="text-sm text-slate-900 mt-1">{order.shipping_service_name || "-"}</p>
+            {order.delivery_method === "pickup" ? (
+              <div className="rounded-lg bg-slate-50 p-4 text-sm text-[var(--color-muted)]">
+                Pedido configurado para retirada. Nao ha frete calculado.
               </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Prazo</p>
-                <p className="text-sm text-slate-900 mt-1">
-                  {order.shipping_delivery_days ? `${order.shipping_delivery_days} dias` : "-"}
-                </p>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Servico</p>
+                  <p className="text-sm text-slate-900 mt-1">{order.shipping_service_name || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Prazo</p>
+                  <p className="text-sm text-slate-900 mt-1">
+                    {order.shipping_delivery_days ? `${order.shipping_delivery_days} dias` : "-"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">CEP Origem</p>
+                  <p className="text-sm text-slate-900 mt-1">{order.shipping_from_postal_code || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">CEP Destino</p>
+                  <p className="text-sm text-slate-900 mt-1">{order.shipping_to_postal_code || "-"}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Custo do Frete</p>
+                  <p className="text-sm text-slate-900 mt-1">{formatCents(order.shipping_cents)}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">CEP Origem</p>
-                <p className="text-sm text-slate-900 mt-1">{order.shipping_from_postal_code || "-"}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">CEP Destino</p>
-                <p className="text-sm text-slate-900 mt-1">{order.shipping_to_postal_code || "-"}</p>
-              </div>
-              <div className="col-span-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Custo do Frete</p>
-                <p className="text-sm text-slate-900 mt-1">{formatCents(order.shipping_cents)}</p>
-              </div>
-            </div>
+            )}
           </section>
         </div>
 

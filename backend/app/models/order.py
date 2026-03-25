@@ -22,6 +22,9 @@ class Order(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     status: Mapped[str] = mapped_column(String(50), nullable=False)
+    delivery_method: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="shipping", server_default="shipping"
+    )
     customer_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id"), nullable=True)
     customer_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     customer_email: Mapped[str | None] = mapped_column(String(255), nullable=True)

@@ -2,7 +2,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..auth import Principal, require_admin
@@ -20,6 +20,7 @@ def list_products(
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     active: Annotated[bool | None, Query()] = None,
+    query: Annotated[str | None, Query(min_length=1)] = None,
 ) -> list[Product]:
     stmt = (
         select(Product)
@@ -28,6 +29,15 @@ def list_products(
     )
     if active is not None:
         stmt = stmt.where(Product.active == active)
+    if query is not None and query.strip() != "":
+        search_term = f"%{query.strip()}%"
+        stmt = stmt.where(
+            or_(
+                Product.title.ilike(search_term),
+                Product.description.ilike(search_term),
+                Product.variants.any(ProductVariant.sku.ilike(search_term)),
+            )
+        )
     stmt = stmt.limit(limit).offset(offset)
     products = db.execute(stmt).scalars().all()
     return list(products)
