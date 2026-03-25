@@ -1,5 +1,6 @@
 # pyright: reportMissingImports=false
 
+from datetime import date, timedelta
 from typing import Annotated
 from uuid import UUID
 
@@ -45,12 +46,18 @@ def list_admin_orders(
     db: Annotated[Session, Depends(get_db_session)],
     principal: Annotated[Principal, Depends(require_admin)],
     status: str | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> list[Order]:
     stmt = select(Order).options(selectinload(Order.items), selectinload(Order.payments))
     if status:
         stmt = stmt.where(Order.status == status)
+    if start_date is not None:
+        stmt = stmt.where(Order.created_at >= start_date)
+    if end_date is not None:
+        stmt = stmt.where(Order.created_at < (end_date + timedelta(days=1)))
     stmt = stmt.order_by(Order.created_at.desc()).limit(limit).offset(offset)
     orders = db.execute(stmt).scalars().all()
     mutated = False

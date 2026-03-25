@@ -122,6 +122,38 @@ def test_upload_creates_image_and_increments_position(
     assert images[2].object_key == payload["object_key"]
 
 
+def test_upload_rejects_when_product_reaches_max_images(
+    client: TestClient,
+    db_session: Session,
+    fake_storage: FakeMinioStorage,
+) -> None:
+    product = _seed_product(db_session)
+    for idx in range(10):
+        db_session.add(
+            ProductImage(
+                product_id=product.id,
+                object_key=f"products/{product.id}/existing-{idx}.jpg",
+                url=f"http://localhost:9000/product-images/products/{product.id}/existing-{idx}.jpg",
+                position=idx,
+            )
+        )
+    db_session.commit()
+
+    response = client.post(
+        f"/admin/products/{product.id}/images/upload",
+        files={"file": ("new-image.png", b"test-image-bytes", "image/png")},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "maximum of 10 images per product reached"
+    assert len(fake_storage.uploaded) == 0
+
+    images = db_session.execute(
+        select(ProductImage).where(ProductImage.product_id == product.id)
+    ).scalars().all()
+    assert len(images) == 10
+
+
 @pytest.mark.parametrize(
     "requested_ids",
     [

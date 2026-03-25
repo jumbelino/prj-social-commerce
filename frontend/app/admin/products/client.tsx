@@ -24,12 +24,13 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState<number | undefined>(undefined);
+  const [hasNextPage, setHasNextPage] = useState(false);
   
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
@@ -41,16 +42,17 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
     try {
       const activeFilter = statusFilter === "active" ? true : statusFilter === "inactive" ? false : undefined;
       const offset = (page - 1) * PAGE_SIZE;
-      const data = await listAdminProducts({ active: activeFilter, limit: PAGE_SIZE, offset });
+      const data = await listAdminProducts({ active: activeFilter, limit: PAGE_SIZE + 1, offset });
       
-      let filteredData = data;
+      setHasNextPage(data.length > PAGE_SIZE);
+
+      let filteredData = data.slice(0, PAGE_SIZE);
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        filteredData = data.filter(p => p.title.toLowerCase().includes(query));
+        filteredData = filteredData.filter(p => p.title.toLowerCase().includes(query));
       }
       
       setProducts(filteredData);
-      setTotal(data.length === PAGE_SIZE ? offset + PAGE_SIZE + 1 : offset + data.length);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load products");
     } finally {
@@ -80,11 +82,13 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
     
     setIsDeleting(true);
     setError(null);
+    setSuccessMessage(null);
     try {
       await deleteAdminProduct(productToDelete.id);
       setDeleteModalOpen(false);
       setProductToDelete(null);
-      loadProducts();
+      await loadProducts();
+      setSuccessMessage("Produto removido. Se houver histórico de venda, ele foi arquivado automaticamente.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete product");
     } finally {
@@ -94,9 +98,11 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
 
   const handleToggleActive = async (product: Product) => {
     setError(null);
+    setSuccessMessage(null);
     try {
       const updated = await toggleAdminProductActive(product.id, !product.active);
       setProducts(prev => prev.map(p => p.id === product.id ? { ...p, active: updated.active } : p));
+      setSuccessMessage(updated.active ? "Produto ativado com sucesso." : "Produto desativado com sucesso.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update product status");
     }
@@ -175,6 +181,11 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
       </section>
 
       {error && <ErrorPanel title="Erro" message={error} />}
+      {successMessage && (
+        <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+          {successMessage}
+        </div>
+      )}
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
@@ -210,7 +221,7 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
         data={products}
         page={page}
         pageSize={PAGE_SIZE}
-        total={total}
+        hasNext={hasNextPage}
         onPageChange={handlePageChange}
         emptyMessage="Nenhum produto encontrado"
         isLoading={isLoading}

@@ -130,7 +130,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Cliente: {customer.name}</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Cliente: {customer.name || "-"}</h1>
           <p className="text-sm text-[var(--color-muted)] mt-1">
             Detalhes e historico de pedidos
           </p>

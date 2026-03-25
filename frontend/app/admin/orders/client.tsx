@@ -19,7 +19,7 @@ export function OrdersClient() {
   const [endDate, setEndDate] = useState<string>("");
   
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState<number | undefined>(undefined);
+  const [hasNextPage, setHasNextPage] = useState(false);
   
   const [selectedOrder, setSelectedOrder] = useState<OrderRead | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -31,30 +31,14 @@ export function OrdersClient() {
       const offset = (page - 1) * PAGE_SIZE;
       const data = await listAdminOrders({ 
         status: statusFilter || undefined, 
-        limit: 100,
-        offset: 0
+        start_date: startDate || undefined,
+        end_date: endDate || undefined,
+        limit: PAGE_SIZE + 1,
+        offset,
       });
-      
-      let filteredData = data;
-      if (startDate || endDate) {
-        filteredData = data.filter(order => {
-          const orderDate = new Date(order.created_at);
-          const start = startDate ? new Date(startDate) : null;
-          const end = endDate ? new Date(endDate) : null;
-          
-          if (start && orderDate < start) return false;
-          if (end) {
-            const endOfDay = new Date(end);
-            endOfDay.setHours(23, 59, 59, 999);
-            if (orderDate > endOfDay) return false;
-          }
-          return true;
-        });
-      }
-      
-      const paginatedData = filteredData.slice(offset, offset + PAGE_SIZE);
-      setOrders(paginatedData);
-      setTotal(filteredData.length);
+
+      setHasNextPage(data.length > PAGE_SIZE);
+      setOrders(data.slice(0, PAGE_SIZE));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load orders");
     } finally {
@@ -157,9 +141,7 @@ export function OrdersClient() {
         <section className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-card)] p-5">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-xl text-slate-900">Lista de Pedidos</h2>
-            <span className="text-sm text-[var(--color-muted)]">
-              {total !== undefined && `${orders.length} de ${total}`}
-            </span>
+            <span className="text-sm text-[var(--color-muted)]">{orders.length} na página</span>
           </div>
 
           <div className="mt-4 space-y-3 max-h-[500px] overflow-y-auto">
@@ -205,7 +187,7 @@ export function OrdersClient() {
             )}
           </div>
 
-          {total !== undefined && total > PAGE_SIZE && (
+          {(hasNextPage || page > 1) && (
             <div className="mt-4 flex items-center justify-between">
               <button
                 onClick={() => handlePageChange(page - 1)}
@@ -215,11 +197,11 @@ export function OrdersClient() {
                 Anterior
               </button>
               <span className="text-sm text-[var(--color-muted)]">
-                Página {page} de {Math.ceil(total / PAGE_SIZE)}
+                Página {page}
               </span>
               <button
                 onClick={() => handlePageChange(page + 1)}
-                disabled={page * PAGE_SIZE >= total}
+                disabled={!hasNextPage}
                 className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm disabled:opacity-50"
               >
                 Próxima
@@ -274,6 +256,14 @@ export function OrdersClient() {
                   <p className="text-[var(--color-muted)]">
                     {selectedOrder.shipping_delivery_days} dias - {formatCents(selectedOrder.shipping_cents)}
                   </p>
+                </div>
+              </div>
+
+              <div className="rounded-lg bg-slate-50 p-4">
+                <p className="text-sm font-medium">Pagamento</p>
+                <div className="mt-2 space-y-1 text-sm text-[var(--color-muted)]">
+                  <p>Status: {selectedOrder.latest_payment_status || "sem registro"}</p>
+                  <p>ID externo: {selectedOrder.latest_payment_external_id || "-"}</p>
                 </div>
               </div>
 

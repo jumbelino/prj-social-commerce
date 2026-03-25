@@ -4,13 +4,27 @@ import { NextResponse } from "next/server";
 
 const API_BASE = process.env.INTERNAL_API_BASE_URL || "http://localhost:8000";
 
+function isAdminSession(
+  session: unknown
+): session is { accessToken: string; roles?: string[] } {
+  if (!session || typeof session !== "object") {
+    return false;
+  }
+  const candidate = session as { accessToken?: unknown; roles?: unknown };
+  return (
+    typeof candidate.accessToken === "string" &&
+    Array.isArray(candidate.roles) &&
+    candidate.roles.includes("admin")
+  );
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
   const session = await getServerSession(authOptions);
-  if (!session?.accessToken) {
+  if (!isAdminSession(session)) {
     return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
   }
 
@@ -31,7 +45,7 @@ export async function PATCH(
 ) {
   const { id } = await params;
   const session = await getServerSession(authOptions);
-  if (!session?.accessToken) {
+  if (!isAdminSession(session)) {
     return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
   }
 
