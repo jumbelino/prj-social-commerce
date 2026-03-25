@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 const STORAGE_KEY = "social-commerce-cart";
 
@@ -159,26 +159,26 @@ function parseStoredCart(raw: string | null): CartState {
 }
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<CartState>(emptyCartState);
-  const [isHydrated, setIsHydrated] = useState(false);
+  const [state, setState] = useState<CartState>(() => {
+    if (typeof window === "undefined") {
+      return emptyCartState();
+    }
+    return parseStoredCart(localStorage.getItem(STORAGE_KEY));
+  });
+  const hasPersistedRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
 
-    const storedState = parseStoredCart(localStorage.getItem(STORAGE_KEY));
-    setState(storedState);
-    setIsHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !isHydrated) {
+    if (!hasPersistedRef.current) {
+      hasPersistedRef.current = true;
       return;
     }
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [isHydrated, state]);
+  }, [state]);
 
   const { items, destinationPostalCode, selectedShipping } = state;
 
@@ -241,10 +241,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const clearCart = useCallback(() => {
-    setState((current) => ({
-      ...current,
-      items: [],
-    }));
+    setState(emptyCartState());
   }, []);
 
   const setDestinationPostalCode = useCallback((value: string | null) => {

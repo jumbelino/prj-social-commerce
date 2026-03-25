@@ -8,7 +8,7 @@ import { ProductImagesManager } from "@/components/products/ProductImagesManager
 import { ProductForm } from "@/components/products/ProductForm";
 import {
   ApiRequestError,
-  getProductById,
+  getAdminProductById,
   type Product,
   type ProductImage,
   type ProductCreatePayload,
@@ -33,7 +33,7 @@ export default function EditProductPage() {
       setErrorMessage(null);
 
       try {
-        const data = await getProductById(productId);
+        const data = await getAdminProductById(productId);
         if (isActive) {
           setProduct(data);
         }

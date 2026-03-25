@@ -45,6 +45,21 @@ services:
       retries: 5
       start_period: 10s
 
+  minio-init:
+    image: minio/mc:latest
+    container_name: social-commerce-minio-init
+    restart: "no"
+    entrypoint: ["/bin/sh", "/bootstrap/bootstrap-public-bucket.sh"]
+    environment:
+      MINIO_BUCKET: ${MINIO_BUCKET:-product-images}
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    volumes:
+      - ./minio/bootstrap-public-bucket.sh:/bootstrap/bootstrap-public-bucket.sh:ro
+    depends_on:
+      minio:
+        condition: service_healthy
+
   keycloak:
     image: quay.io/keycloak/keycloak:24.0
     container_name: social-commerce-keycloak
@@ -70,9 +85,12 @@ services:
       OIDC_ISSUER: ${OIDC_ISSUER:-http://localhost:8080/realms/social-commerce}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE:-realm-management}
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      CHECKOUT_RESULT_REDIRECT_BASE_URL: ${CHECKOUT_RESULT_REDIRECT_BASE_URL:-http://localhost:3000/checkout/result}
       MERCADO_PAGO_MOCK: ${MERCADO_PAGO_MOCK:-1}
+      MERCADO_PAGO_CHECKOUT_MODE: ${MERCADO_PAGO_CHECKOUT_MODE:-auto}
       MERCADO_PAGO_MOCK_GET_STATUS: ${MERCADO_PAGO_MOCK_GET_STATUS:-approved}
       MERCADO_PAGO_ACCESS_TOKEN: ${MERCADO_PAGO_ACCESS_TOKEN:-replace-with-dev-token}
+      MERCADO_PAGO_NOTIFICATION_URL: ${MERCADO_PAGO_NOTIFICATION_URL:-}
       MERCADO_PAGO_WEBHOOK_SECRET: ${MERCADO_PAGO_WEBHOOK_SECRET:-replace-with-dev-webhook-secret}
       MELHOR_ENVIO_BASE_URL: ${MELHOR_ENVIO_BASE_URL:-https://sandbox.melhorenvio.com.br}
       MELHOR_ENVIO_TOKEN: ${MELHOR_ENVIO_TOKEN:-replace-with-dev-token}
@@ -97,10 +115,13 @@ services:
         NEXT_PUBLIC_OIDC_AUTHORITY: ${NEXT_PUBLIC_OIDC_AUTHORITY:-http://localhost:8080/realms/social-commerce}
         NEXT_PUBLIC_OIDC_CLIENT_ID: ${NEXT_PUBLIC_OIDC_CLIENT_ID:-social-commerce-frontend}
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+        NEXT_PUBLIC_APP_BASE_URL: ${NEXT_PUBLIC_APP_BASE_URL:-http://localhost:3000}
+        INTERNAL_API_BASE_URL: ${INTERNAL_API_BASE_URL:-http://backend:8000}
     container_name: social-commerce-frontend
     restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+      NEXT_PUBLIC_APP_BASE_URL: ${NEXT_PUBLIC_APP_BASE_URL:-http://localhost:3000}
       INTERNAL_API_BASE_URL: ${INTERNAL_API_BASE_URL:-http://backend:8000}
       NEXT_PUBLIC_OIDC_AUTHORITY: ${NEXT_PUBLIC_OIDC_AUTHORITY:-http://localhost:8080/realms/social-commerce}
       OIDC_INTERNAL_AUTHORITY: ${OIDC_INTERNAL_AUTHORITY:-http://keycloak:8080/realms/social-commerce}

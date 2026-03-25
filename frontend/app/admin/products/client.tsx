@@ -230,9 +230,9 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
 
       <ConfirmModal
         isOpen={deleteModalOpen}
-        title="Excluir Produto"
-        message={`Tem certeza que deseja excluir o produto "${productToDelete?.title}"? Esta ação não pode ser desfeita.`}
-        confirmLabel="Excluir"
+        title="Excluir ou arquivar produto"
+        message={`Confirma a remoção do produto "${productToDelete?.title}"? Produtos com histórico de venda serão arquivados automaticamente para preservar os pedidos.`}
+        confirmLabel="Continuar"
         cancelLabel="Cancelar"
         onConfirm={handleDeleteConfirm}
         onCancel={() => { setDeleteModalOpen(false); setProductToDelete(null); }}

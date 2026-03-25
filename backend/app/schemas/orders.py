@@ -59,6 +59,7 @@ class OrderRead(BaseModel):
 
     id: UUID
     status: str
+    customer_id: int | None
     customer_name: str | None
     customer_email: str | None
     customer_phone: str | None
@@ -73,6 +74,10 @@ class OrderRead(BaseModel):
     shipping_to_postal_code: str | None
     shipping_quote_json: dict[str, object] | None
     total_cents: int
+    expires_at: datetime | None
+    inventory_released_at: datetime | None
+    latest_payment_status: str | None
+    latest_payment_external_id: str | None
     created_at: datetime
     items: list[OrderItemRead]
 

@@ -23,6 +23,8 @@ type CheckoutForm = {
   customerPhone: string; // digits only, without +55
 };
 
+const PUBLIC_APP_BASE_URL = process.env.NEXT_PUBLIC_APP_BASE_URL?.trim() ?? "";
+
 function messageFromError(error: unknown): string {
   if (error instanceof ApiRequestError) {
     return error.message;
@@ -30,9 +32,20 @@ function messageFromError(error: unknown): string {
   return "Unexpected request failure.";
 }
 
+function resolveCheckoutResultBaseUrl(): string | undefined {
+  const configuredBaseUrl = PUBLIC_APP_BASE_URL.replace(/\/$/, "");
+  if (configuredBaseUrl !== "") {
+    return `${configuredBaseUrl}/checkout/result`;
+  }
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+  return `${window.location.origin}/checkout/result`;
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, totalCents, clearCart, selectedShipping, destinationPostalCode } = useCart();
+  const { items, totalCents, selectedShipping, destinationPostalCode } = useCart();
 
   const [form, setForm] = useState<CheckoutForm>({
     customerName: "",
@@ -118,17 +131,16 @@ export default function CheckoutPage() {
 
       try {
         if (paymentMethod === "checkout_pro") {
-          const preferenceResponse = await createMercadoPagoPreference(createdOrder.id);
+          const returnUrlBase = resolveCheckoutResultBaseUrl();
+          const preferenceResponse = await createMercadoPagoPreference(createdOrder.id, returnUrlBase);
           setPaymentPreference(preferenceResponse);
-          clearCart();
           setIsRedirecting(true);
           window.setTimeout(() => {
-            window.location.assign(preferenceResponse.init_point);
+            window.location.assign(preferenceResponse.checkout_url);
           }, 150);
         } else if (paymentMethod === "pix") {
           const pixResponse = await createMercadoPagoPayment(createdOrder.id);
           setPixPayment(pixResponse);
-          clearCart();
         }
       } catch (error) {
         setPaymentError(messageFromError(error));
@@ -146,7 +158,7 @@ export default function CheckoutPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Checkout</p>
         <h1 className="mt-3 font-display text-4xl leading-tight text-slate-900">Create order and request payment</h1>
         <p className="mt-2 max-w-2xl text-base text-[var(--color-muted)]">
-          Confirm customer details, shipping, and totals before proceeding to payment via Mercado Pago Checkout Pro or PIX.
+          Confirm customer details, shipping, and totals before proceeding to payment. The order will only be finalized after Mercado Pago confirms the payment.
         </p>
       </section>
 
@@ -303,6 +315,11 @@ export default function CheckoutPage() {
           <p className="text-sm text-slate-700">
             Total: <span className="font-semibold">{formatCents(order.total_cents)}</span>
           </p>
+          {order.expires_at ? (
+            <p className="text-sm text-slate-700">
+              Payment deadline: <span className="font-semibold">{new Date(order.expires_at).toLocaleString("pt-BR")}</span>
+            </p>
+          ) : null}
         </section>
       ) : null}
 
@@ -315,14 +332,21 @@ export default function CheckoutPage() {
             Preference ID: <span className="font-semibold">{paymentPreference.preference_id}</span>
           </p>
           <p className="text-sm text-slate-700">
-            {isRedirecting ? "Opening Mercado Pago in this tab..." : "Use the link below to continue payment."}
+            {paymentPreference.is_sandbox
+              ? "Mercado Pago sandbox is being opened in this tab."
+              : isRedirecting
+                ? "Opening Mercado Pago in this tab..."
+                : "Use the link below to continue payment."}
           </p>
           <a
-            href={paymentPreference.init_point}
+            href={paymentPreference.checkout_url}
             className="inline-block break-all text-sm font-semibold text-[var(--color-accent)] underline"
           >
-            {paymentPreference.init_point}
+            {paymentPreference.checkout_url}
           </a>
+          <p className="text-sm text-slate-600">
+            Your cart stays intact until payment confirmation. After returning, the application will sync the payment status and show the final result explicitly.
+          </p>
         </section>
       ) : null}
 
@@ -378,7 +402,7 @@ export default function CheckoutPage() {
           ) : null}
 
           <p className="text-sm text-slate-600">
-            Complete your payment using one of the methods above. The order will be confirmed after payment is received.
+            Complete your payment using one of the methods above. The order remains pending until Mercado Pago confirms it. If the payment fails or expires, stock will be released again.
           </p>
         </section>
       ) : null}

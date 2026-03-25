@@ -17,6 +17,7 @@ class ProductVariantCreate(BaseModel):
 
 
 class ProductVariantUpdate(BaseModel):
+    id: UUID | None = None
     sku: str | None = None
     price_cents: int | None = Field(default=None, ge=0)
     attributes_json: dict[str, object] | None = None

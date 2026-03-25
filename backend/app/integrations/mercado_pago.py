@@ -12,6 +12,32 @@ def _is_mercado_pago_mock_enabled() -> bool:
     return os.getenv("MERCADO_PAGO_MOCK", "0").strip() == "1"
 
 
+def read_mercado_pago_checkout_mode() -> str:
+    mode = os.getenv("MERCADO_PAGO_CHECKOUT_MODE", "auto").strip().lower()
+    if mode in {"sandbox", "production", "auto"}:
+        return mode
+    return "auto"
+
+
+def is_mercado_pago_sandbox_enabled(access_token: str | None = None) -> bool:
+    if _is_mercado_pago_mock_enabled():
+        return True
+
+    checkout_mode = read_mercado_pago_checkout_mode()
+    if checkout_mode == "sandbox":
+        return True
+    if checkout_mode == "production":
+        return False
+
+    token = access_token
+    if token is None:
+        token = os.getenv("MERCADO_PAGO_ACCESS_TOKEN")
+    if token is None:
+        return False
+
+    return token.strip().startswith("TEST-")
+
+
 class MercadoPagoError(Exception):
     def __init__(self, status_code: int, response_body: str):
         self.status_code: int = status_code
@@ -126,6 +152,9 @@ class MercadoPagoClient:
         *,
         external_reference: str,
         items: list[dict[str, object]],
+        payer_email: str | None = None,
+        back_urls: Mapping[str, str] | None = None,
+        notification_url: str | None = None,
     ) -> Mapping[str, object]:
         if _is_mercado_pago_mock_enabled():
             deterministic_suffix = external_reference.replace("-", "")[:12] or "default"
@@ -166,7 +195,14 @@ class MercadoPagoClient:
         payload = {
             "external_reference": external_reference,
             "items": normalized_items,
+            "auto_return": "approved",
         }
+        if payer_email is not None and payer_email.strip() != "":
+            payload["payer"] = {"email": payer_email.strip()}
+        if back_urls:
+            payload["back_urls"] = dict(back_urls)
+        if notification_url is not None and notification_url.strip() != "":
+            payload["notification_url"] = notification_url.strip()
         headers = {
             "Authorization": f"Bearer {self._access_token}",
             "X-Idempotency-Key": str(uuid4()),

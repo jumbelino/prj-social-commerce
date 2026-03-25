@@ -7,6 +7,7 @@ from .api import (
     admin_dashboard_router,
     admin_product_images_router,
     admin_orders_router,
+    checkout_router,
     orders_router,
     payments_router,
     products_router,
@@ -24,6 +25,7 @@ app = FastAPI(title=settings.app_name)
 configure_cors(app, settings)
 app.include_router(health_router)
 app.include_router(products_router)
+app.include_router(checkout_router)
 app.include_router(orders_router)
 app.include_router(shipping_router)
 app.include_router(payments_router)
