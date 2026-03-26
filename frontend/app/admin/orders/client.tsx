@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { listAdminOrders, updateAdminOrderStatus, type OrderRead } from "@/lib/api";
 import {
   getDeliveryMethodMeta,
@@ -18,6 +19,7 @@ import OperationalBadge from "@/components/admin/OperationalBadge";
 const PAGE_SIZE = 20;
 
 export function OrdersClient() {
+  const router = useRouter();
   const [orders, setOrders] = useState<OrderRead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -360,6 +362,18 @@ export function OrdersClient() {
               </div>
                 );
               })()}
+
+              <div className="rounded-lg bg-slate-50 p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium">Ações</p>
+                  <button
+                    onClick={() => router.push(`/admin/orders/${selectedOrder.id}`)}
+                    className="text-sm font-medium text-[var(--color-accent)] hover:underline"
+                  >
+                    Abrir detalhe completo
+                  </button>
+                </div>
+              </div>
 
               <div className="rounded-lg bg-slate-50 p-4">
                 <p className="text-sm font-medium">Cliente</p>
