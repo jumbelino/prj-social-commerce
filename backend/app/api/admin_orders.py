@@ -5,13 +5,14 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..auth.dependencies import Principal, require_admin
 from ..db.session import get_db_session
 from ..integrations.melhor_envio import read_shipping_origin_postal_code
 from ..models.order import Order
+from ..models.payment import Payment
 from ..schemas.enums import DeliveryMethod, OrderStatus
 from ..schemas.orders import OrderCreate, OrderRead, OrderStatusUpdate
 from ..services import create_order_from_payload, expire_order_if_needed, release_inventory_for_order
@@ -54,6 +55,7 @@ def list_admin_orders(
     db: Annotated[Session, Depends(get_db_session)],
     principal: Annotated[Principal, Depends(require_admin)],
     status: str | None = None,
+    payment_status: str | None = None,
     source: str | None = None,
     start_date: date | None = None,
     end_date: date | None = None,
@@ -61,8 +63,21 @@ def list_admin_orders(
     offset: int = 0,
 ) -> list[Order]:
     stmt = select(Order).options(selectinload(Order.items), selectinload(Order.payments))
+    latest_payment_status = (
+        select(Payment.status)
+        .where(Payment.order_id == Order.id)
+        .order_by(Payment.created_at.desc(), Payment.id.desc())
+        .limit(1)
+        .scalar_subquery()
+    )
     if status:
         stmt = stmt.where(Order.status == status)
+    if payment_status:
+        normalized_payment_status = payment_status.strip().lower()
+        if normalized_payment_status == "none":
+            stmt = stmt.where(latest_payment_status.is_(None))
+        else:
+            stmt = stmt.where(func.lower(latest_payment_status) == normalized_payment_status)
     if source:
         stmt = stmt.where(Order.source == source)
     if start_date is not None:

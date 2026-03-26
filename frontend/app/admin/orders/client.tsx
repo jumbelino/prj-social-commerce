@@ -2,20 +2,20 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { listAdminOrders, updateAdminOrderStatus, type OrderRead } from "@/lib/api";
+import {
+  getDeliveryMethodMeta,
+  getOrderSourceMeta,
+  getOrderStatusMeta,
+  getPaymentStatusMeta,
+  ORDER_STATUS_VALUES,
+  PAYMENT_STATUS_FILTER_VALUES,
+} from "@/lib/admin-order-display";
 import { formatCents } from "@/lib/currency";
 import { ErrorPanel } from "@/components/error-panel";
 import EmptyState from "@/components/admin/EmptyState";
+import OperationalBadge from "@/components/admin/OperationalBadge";
 
 const PAGE_SIZE = 20;
-const STATUSES = ["pending", "paid", "shipped", "delivered", "cancelled"] as const;
-
-function formatOrderSource(source: string): string {
-  return source === "admin_assisted" ? "Venda assistida" : "Loja";
-}
-
-function formatDeliveryMethod(deliveryMethod: OrderRead["delivery_method"]): string {
-  return deliveryMethod === "pickup" ? "Retirada" : "Envio";
-}
 
 export function OrdersClient() {
   const [orders, setOrders] = useState<OrderRead[]>([]);
@@ -23,6 +23,7 @@ export function OrdersClient() {
   const [error, setError] = useState<string | null>(null);
   
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>("");
   const [sourceFilter, setSourceFilter] = useState<string>("");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
@@ -40,6 +41,7 @@ export function OrdersClient() {
       const offset = (page - 1) * PAGE_SIZE;
       const data = await listAdminOrders({ 
         status: statusFilter || undefined, 
+        payment_status: paymentStatusFilter || undefined,
         source: sourceFilter || undefined,
         start_date: startDate || undefined,
         end_date: endDate || undefined,
@@ -50,11 +52,11 @@ export function OrdersClient() {
       setHasNextPage(data.length > PAGE_SIZE);
       setOrders(data.slice(0, PAGE_SIZE));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load orders");
+      setError(err instanceof Error ? err.message : "Falha ao carregar pedidos");
     } finally {
       setIsLoading(false);
     }
-  }, [statusFilter, sourceFilter, startDate, endDate, page]);
+  }, [statusFilter, paymentStatusFilter, sourceFilter, startDate, endDate, page]);
 
   useEffect(() => {
     loadOrders();
@@ -62,7 +64,7 @@ export function OrdersClient() {
 
   useEffect(() => {
     setPage(1);
-  }, [statusFilter, sourceFilter, startDate, endDate]);
+  }, [statusFilter, paymentStatusFilter, sourceFilter, startDate, endDate]);
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
@@ -78,7 +80,7 @@ export function OrdersClient() {
         setSelectedOrder(updated);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update status");
+      setError(err instanceof Error ? err.message : "Falha ao atualizar status");
     } finally {
       setIsUpdating(false);
     }
@@ -107,55 +109,117 @@ export function OrdersClient() {
 
       {error && <ErrorPanel title="Erro" message={error} />}
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        <div className="flex items-center gap-3">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
-          >
-            <option value="">Todos os status</option>
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s.charAt(0).toUpperCase() + s.slice(1)}
-              </option>
-            ))}
-          </select>
+      <section className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-card)] p-5">
+        <div className="flex flex-col gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">
+              Filtros operacionais
+            </p>
+            <p className="mt-1 text-sm text-[var(--color-muted)]">
+              Use status do pagamento, status do pedido, origem e período para localizar o contexto certo mais rápido.
+            </p>
+          </div>
 
-          <select
-            value={sourceFilter}
-            onChange={(e) => setSourceFilter(e.target.value)}
-            className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
-          >
-            <option value="">Todas as origens</option>
-            <option value="storefront">Loja</option>
-            <option value="admin_assisted">Venda assistida</option>
-          </select>
-          
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
-          />
-          
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
-          />
-          
-          {(startDate || endDate) && (
-            <button
-              onClick={() => { setStartDate(""); setEndDate(""); }}
-              className="text-sm text-[var(--color-accent)] hover:underline"
-            >
-              Limpar
-            </button>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-[var(--color-muted)]">Status do pedido</span>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+              >
+                <option value="">Todos os status</option>
+                {ORDER_STATUS_VALUES.map((s) => (
+                  <option key={s} value={s}>
+                    {getOrderStatusMeta(s).label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-[var(--color-muted)]">Status do pagamento</span>
+              <select
+                value={paymentStatusFilter}
+                onChange={(e) => setPaymentStatusFilter(e.target.value)}
+                className="w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+              >
+                <option value="">Todos os pagamentos</option>
+                {PAYMENT_STATUS_FILTER_VALUES.map((status) => (
+                  <option key={status} value={status}>
+                    {status === "none" ? "Sem pagamento" : getPaymentStatusMeta(status).label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-[var(--color-muted)]">Origem</span>
+              <select
+                value={sourceFilter}
+                onChange={(e) => setSourceFilter(e.target.value)}
+                className="w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+              >
+                <option value="">Todas as origens</option>
+                <option value="storefront">Loja</option>
+                <option value="admin_assisted">Venda assistida</option>
+              </select>
+            </label>
+
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-[var(--color-muted)]">Data inicial</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+              />
+            </label>
+
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-[var(--color-muted)]">Data final</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+              />
+            </label>
+          </div>
+
+          {(statusFilter || paymentStatusFilter || sourceFilter || startDate || endDate) && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-[var(--color-muted)]">Filtros ativos:</span>
+              {statusFilter ? <OperationalBadge meta={getOrderStatusMeta(statusFilter)} prefix="Pedido" /> : null}
+              {paymentStatusFilter ? (
+                <OperationalBadge
+                  meta={paymentStatusFilter === "none" ? getPaymentStatusMeta(null) : getPaymentStatusMeta(paymentStatusFilter)}
+                  prefix="Pagamento"
+                  emphasized
+                />
+              ) : null}
+              {sourceFilter ? <OperationalBadge meta={getOrderSourceMeta(sourceFilter)} prefix="Origem" /> : null}
+              {(startDate || endDate) ? (
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
+                  Período {startDate || "início"} até {endDate || "hoje"}
+                </span>
+              ) : null}
+              <button
+                onClick={() => {
+                  setStatusFilter("");
+                  setPaymentStatusFilter("");
+                  setSourceFilter("");
+                  setStartDate("");
+                  setEndDate("");
+                }}
+                className="text-sm text-[var(--color-accent)] hover:underline"
+              >
+                Limpar filtros
+              </button>
+            </div>
           )}
         </div>
-      </div>
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-card)] p-5">
@@ -176,40 +240,60 @@ export function OrdersClient() {
                 <button
                   key={order.id}
                   onClick={() => setSelectedOrder(order)}
-                  className={`w-full rounded-lg border p-4 text-left transition hover:border-slate-400 ${
+                  className={`w-full rounded-xl border p-4 text-left transition hover:border-slate-400 ${
                     selectedOrder?.id === order.id
                       ? "border-[var(--color-accent)] bg-[var(--color-accent)]/5"
                       : "border-[var(--color-line)]"
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">{order.customer_email || order.customer_name || "Anônimo"}</p>
-                      <p className="text-xs text-[var(--color-muted)]">
-                        {new Date(order.created_at).toLocaleDateString("pt-BR")}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700">
-                          {formatOrderSource(order.source)}
-                        </span>
-                        <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700">
-                          {formatDeliveryMethod(order.delivery_method)}
-                        </span>
+                  {(() => {
+                    const sourceMeta = getOrderSourceMeta(order.source);
+                    const deliveryMeta = getDeliveryMethodMeta(order.delivery_method);
+                    const orderStatusMeta = getOrderStatusMeta(order.status);
+                    const paymentStatusMeta = getPaymentStatusMeta(order.latest_payment_status);
+
+                    return (
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 space-y-2">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <p className="text-sm font-semibold text-slate-900">
+                          Pedido #{order.id.slice(0, 8)}
+                        </p>
+                        <p className="text-xs text-[var(--color-muted)]">
+                          {new Date(order.created_at).toLocaleDateString("pt-BR", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                          })}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="truncate text-sm font-medium text-slate-900">
+                          {order.customer_name || order.customer_email || "Cliente não identificado"}
+                        </p>
+                        <p className="truncate text-xs text-[var(--color-muted)]">
+                          {order.customer_email || "Sem email"} · {order.items.length} {order.items.length === 1 ? "item" : "itens"}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <OperationalBadge meta={paymentStatusMeta} prefix="Pagamento" emphasized />
+                        <OperationalBadge meta={orderStatusMeta} prefix="Pedido" />
+                        <OperationalBadge meta={sourceMeta} />
+                        <OperationalBadge meta={deliveryMeta} />
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium">{formatCents(order.total_cents)}</p>
-                      <p className={`text-xs font-medium ${
-                        order.status === "paid" ? "text-green-600" :
-                        order.status === "cancelled" ? "text-red-600" :
-                        order.status === "shipped" ? "text-blue-600" :
-                        order.status === "delivered" ? "text-emerald-600" :
-                        "text-amber-600"
-                      }`}>
-                        {order.status}
+
+                    <div className="shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-right">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
+                        Total
                       </p>
+                      <p className="mt-1 text-base font-semibold text-slate-900">{formatCents(order.total_cents)}</p>
                     </div>
                   </div>
+                    );
+                  })()}
                 </button>
               ))
             )}
@@ -245,20 +329,37 @@ export function OrdersClient() {
             <p className="mt-4 text-sm text-[var(--color-muted)]">Selecione um pedido para ver os detalhes</p>
           ) : (
             <div className="mt-4 space-y-4">
+              {(() => {
+                const orderStatusMeta = getOrderStatusMeta(selectedOrder.status);
+                const paymentStatusMeta = getPaymentStatusMeta(selectedOrder.latest_payment_status);
+                const sourceMeta = getOrderSourceMeta(selectedOrder.source);
+                const deliveryMeta = getDeliveryMethodMeta(selectedOrder.delivery_method);
+
+                return (
               <div className="rounded-lg bg-slate-50 p-4">
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-[var(--color-muted)]">ID do Pedido</p>
                   <p className="font-mono text-sm">{selectedOrder.id}</p>
                 </div>
                 <div className="mt-2 flex items-center justify-between">
+                  <p className="text-sm text-[var(--color-muted)]">Status do pedido</p>
+                  <OperationalBadge meta={orderStatusMeta} />
+                </div>
+                <div className="mt-2 flex items-center justify-between">
+                  <p className="text-sm text-[var(--color-muted)]">Status do pagamento</p>
+                  <OperationalBadge meta={paymentStatusMeta} emphasized />
+                </div>
+                <div className="mt-2 flex items-center justify-between">
                   <p className="text-sm text-[var(--color-muted)]">Origem</p>
-                  <p className="text-sm">{formatOrderSource(selectedOrder.source)}</p>
+                  <OperationalBadge meta={sourceMeta} />
                 </div>
                 <div className="mt-2 flex items-center justify-between">
                   <p className="text-sm text-[var(--color-muted)]">Entrega</p>
-                  <p className="text-sm">{formatDeliveryMethod(selectedOrder.delivery_method)}</p>
+                  <OperationalBadge meta={deliveryMeta} />
                 </div>
               </div>
+                );
+              })()}
 
               <div className="rounded-lg bg-slate-50 p-4">
                 <p className="text-sm font-medium">Cliente</p>
@@ -274,7 +375,7 @@ export function OrdersClient() {
                 <div className="mt-2 space-y-2">
                   {selectedOrder.items.map((item) => (
                     <div key={item.id} className="flex items-center justify-between text-sm">
-                      <p>Variant {item.variant_id.slice(0, 8)}... x{item.quantity}</p>
+                      <p>Variação {item.variant_id.slice(0, 8)}... x{item.quantity}</p>
                       <p>{formatCents(item.total_cents)}</p>
                     </div>
                   ))}
@@ -300,7 +401,7 @@ export function OrdersClient() {
               <div className="rounded-lg bg-slate-50 p-4">
                 <p className="text-sm font-medium">Pagamento</p>
                 <div className="mt-2 space-y-1 text-sm text-[var(--color-muted)]">
-                  <p>Status: {selectedOrder.latest_payment_status || "sem registro"}</p>
+                  <p>Status: {getPaymentStatusMeta(selectedOrder.latest_payment_status).label}</p>
                   <p>ID externo: {selectedOrder.latest_payment_external_id || "-"}</p>
                 </div>
               </div>
@@ -323,7 +424,7 @@ export function OrdersClient() {
               <div className="rounded-lg bg-slate-50 p-4">
                 <p className="text-sm font-medium">Atualizar Status</p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {STATUSES.map((s) => (
+                  {ORDER_STATUS_VALUES.map((s) => (
                     <button
                       key={s}
                       onClick={() => updateStatus(selectedOrder.id, s)}
@@ -334,7 +435,7 @@ export function OrdersClient() {
                           : "bg-white border border-slate-200 hover:border-slate-400"
                       } disabled:opacity-50`}
                     >
-                      {s}
+                      {getOrderStatusMeta(s).label}
                     </button>
                   ))}
                 </div>

@@ -26,6 +26,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
+  const paymentStatus = searchParams.get("payment_status");
   const source = searchParams.get("source");
   const startDate = searchParams.get("start_date");
   const endDate = searchParams.get("end_date");
@@ -34,6 +35,7 @@ export async function GET(request: Request) {
 
   const params = new URLSearchParams();
   if (status) params.set("status", status);
+  if (paymentStatus) params.set("payment_status", paymentStatus);
   if (source) params.set("source", source);
   if (startDate) params.set("start_date", startDate);
   if (endDate) params.set("end_date", endDate);

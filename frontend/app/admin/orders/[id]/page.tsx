@@ -4,10 +4,16 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 
 import { ErrorPanel } from "@/components/error-panel";
+import {
+  getDeliveryMethodMeta,
+  getOrderSourceMeta,
+  getOrderStatusMeta,
+  getPaymentStatusMeta,
+  ORDER_STATUS_VALUES,
+} from "@/lib/admin-order-display";
+import OperationalBadge from "@/components/admin/OperationalBadge";
 import { ApiRequestError, getAdminOrderById, updateAdminOrderStatus, type OrderRead } from "@/lib/api";
 import { formatCents } from "@/lib/currency";
-
-const STATUSES = ["pending", "paid", "shipped", "delivered", "cancelled"] as const;
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ["paid", "cancelled"],
@@ -16,14 +22,6 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   delivered: [],
   cancelled: [],
 };
-
-function formatOrderSource(source: string): string {
-  return source === "admin_assisted" ? "Venda assistida" : "Loja";
-}
-
-function formatDeliveryMethod(deliveryMethod: OrderRead["delivery_method"]): string {
-  return deliveryMethod === "pickup" ? "Retirada" : "Envio";
-}
 
 export default function OrderDetailPage() {
   const router = useRouter();
@@ -50,7 +48,7 @@ export default function OrderDetailPage() {
         }
       } catch (error) {
         const message =
-          error instanceof ApiRequestError ? error.message : "Failed to load order";
+          error instanceof ApiRequestError ? error.message : "Falha ao carregar pedido";
         if (isActive) {
           setErrorMessage(message);
         }
@@ -81,7 +79,7 @@ export default function OrderDetailPage() {
       setOrder(updated);
     } catch (error) {
       const message =
-        error instanceof ApiRequestError ? error.message : "Failed to update status";
+        error instanceof ApiRequestError ? error.message : "Falha ao atualizar status";
       setErrorMessage(message);
     } finally {
       setIsUpdating(false);
@@ -102,7 +100,7 @@ export default function OrderDetailPage() {
   if (errorMessage && !order) {
     return (
       <div className="space-y-4">
-        <ErrorPanel title="Pedido nao encontrado" message={errorMessage} />
+        <ErrorPanel title="Pedido não encontrado" message={errorMessage} />
         <div className="flex gap-3">
           <button
             onClick={() => setRetryTrigger((t) => t + 1)}
@@ -124,7 +122,7 @@ export default function OrderDetailPage() {
   if (!order) {
     return (
       <div className="space-y-4">
-        <ErrorPanel title="Pedido nao encontrado" message="O pedido solicitado nao existe." />
+        <ErrorPanel title="Pedido não encontrado" message="O pedido solicitado não existe." />
         <button
           onClick={() => router.push("/admin/orders")}
           className="text-sm text-[var(--color-accent)] hover:underline"
@@ -135,13 +133,17 @@ export default function OrderDetailPage() {
     );
   }
 
-  const statusColor = {
-    pending: "text-amber-600 bg-amber-50 border-amber-200",
-    paid: "text-green-600 bg-green-50 border-green-200",
-    shipped: "text-blue-600 bg-blue-50 border-blue-200",
-    delivered: "text-emerald-600 bg-emerald-50 border-emerald-200",
-    cancelled: "text-red-600 bg-red-50 border-red-200",
-  }[order.status] || "text-slate-600 bg-slate-50 border-slate-200";
+  const orderStatusMeta = getOrderStatusMeta(order.status);
+  const paymentStatusMeta = getPaymentStatusMeta(order.latest_payment_status);
+  const sourceMeta = getOrderSourceMeta(order.source);
+  const deliveryMeta = getDeliveryMethodMeta(order.delivery_method);
+  const createdAtLabel = new Date(order.created_at).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   return (
     <div className="space-y-6">
@@ -151,7 +153,7 @@ export default function OrderDetailPage() {
             Pedido <span className="font-mono">#{order.id.slice(0, 8)}</span>
           </h1>
           <p className="text-sm text-[var(--color-muted)] mt-1">
-            Detalhes do pedido
+            Resumo operacional do pedido e acompanhamento de pagamento.
           </p>
         </div>
         <button
@@ -166,38 +168,78 @@ export default function OrderDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
-          <section className="bg-[var(--color-card)] rounded-lg border border-[var(--color-line)] p-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Informacoes do Pedido</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">ID</p>
-                <p className="font-mono text-sm text-slate-900 mt-1">{order.id}</p>
+          <section className="bg-[var(--color-card)] rounded-xl border border-[var(--color-line)] p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">
+                    Resumo operacional
+                  </p>
+                  <p className="mt-2 font-mono text-sm text-slate-900">{order.id}</p>
+                  <p className="mt-1 text-sm text-[var(--color-muted)]">Criado em {createdAtLabel}</p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <OperationalBadge meta={paymentStatusMeta} prefix="Pagamento" emphasized />
+                  <OperationalBadge meta={orderStatusMeta} prefix="Pedido" />
+                  <OperationalBadge meta={sourceMeta} />
+                  <OperationalBadge meta={deliveryMeta} />
+                </div>
               </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Status</p>
-                <span className={`inline-block mt-1 px-2 py-1 rounded text-xs font-medium capitalize border ${statusColor}`}>
-                  {order.status}
-                </span>
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Data</p>
-                <p className="text-sm text-slate-900 mt-1">
-                  {new Date(order.created_at).toLocaleDateString("pt-BR", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 lg:min-w-[180px]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
+                  Total do pedido
+                </p>
+                <p className="mt-2 text-2xl font-semibold text-slate-900">{formatCents(order.total_cents)}</p>
+                <p className="mt-1 text-xs text-[var(--color-muted)]">
+                  {order.delivery_method === "pickup"
+                    ? "Retirada sem frete calculado"
+                    : `Inclui frete de ${formatCents(order.shipping_cents)}`}
                 </p>
               </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Origem</p>
-                <p className="text-sm text-slate-900 mt-1">{formatOrderSource(order.source)}</p>
+            </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="rounded-lg border border-[var(--color-line)] bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">Status do pedido</p>
+                <div className="mt-2">
+                  <OperationalBadge meta={orderStatusMeta} />
+                </div>
               </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Entrega</p>
-                <p className="text-sm text-slate-900 mt-1">{formatDeliveryMethod(order.delivery_method)}</p>
+              <div className="rounded-lg border border-[var(--color-line)] bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">Status do pagamento</p>
+                <div className="mt-2">
+                  <OperationalBadge meta={paymentStatusMeta} emphasized />
+                </div>
+              </div>
+              <div className="rounded-lg border border-[var(--color-line)] bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">Origem</p>
+                <div className="mt-2">
+                  <OperationalBadge meta={sourceMeta} />
+                </div>
+              </div>
+              <div className="rounded-lg border border-[var(--color-line)] bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">Método de entrega</p>
+                <div className="mt-2">
+                  <OperationalBadge meta={deliveryMeta} />
+                </div>
+              </div>
+              <div className="rounded-lg border border-[var(--color-line)] bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">Cliente</p>
+                <p className="mt-2 text-sm font-medium text-slate-900">
+                  {order.customer_name || order.customer_email || "Cliente não identificado"}
+                </p>
+                <p className="mt-1 text-xs text-[var(--color-muted)]">{order.customer_email || order.customer_phone || "Sem contato informado"}</p>
+              </div>
+              <div className="rounded-lg border border-[var(--color-line)] bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">Itens</p>
+                <p className="mt-2 text-sm font-medium text-slate-900">
+                  {order.items.length} {order.items.length === 1 ? "item" : "itens"}
+                </p>
+                <p className="mt-1 text-xs text-[var(--color-muted)]">
+                  Subtotal de {formatCents(order.subtotal_cents)}
+                </p>
               </div>
             </div>
           </section>
@@ -227,11 +269,11 @@ export default function OrderDetailPage() {
                 {order.items.map((item) => (
                   <div
                     key={item.id}
-                    className="flex items-center justify-between p-4 rounded-lg border border-[var(--color-line)] bg-[#fbf8f1]"
+                    className="flex items-center justify-between rounded-lg border border-[var(--color-line)] bg-[#fbf8f1] p-4"
                   >
                     <div>
                       <p className="font-medium text-slate-900">
-                        Variant {item.variant_id.slice(0, 8)}...
+                        Variação {item.variant_id.slice(0, 8)}...
                       </p>
                       <p className="text-sm text-[var(--color-muted)]">
                         Quantidade: {item.quantity} x {formatCents(item.unit_price_cents)}
@@ -249,13 +291,21 @@ export default function OrderDetailPage() {
           <section className="bg-[var(--color-card)] rounded-lg border border-[var(--color-line)] p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-4">Entrega</h2>
             {order.delivery_method === "pickup" ? (
-              <div className="rounded-lg bg-slate-50 p-4 text-sm text-[var(--color-muted)]">
-                Pedido configurado para retirada. Nao ha frete calculado.
+              <div className="rounded-lg border border-[var(--color-line)] bg-slate-50 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-slate-900">Retirada</p>
+                    <p className="mt-1 text-sm text-[var(--color-muted)]">
+                      Este pedido foi configurado para retirada e não depende de cotação de frete.
+                    </p>
+                  </div>
+                  <OperationalBadge meta={deliveryMeta} />
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Servico</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Serviço</p>
                   <p className="text-sm text-slate-900 mt-1">{order.shipping_service_name || "-"}</p>
                 </div>
                 <div>
@@ -283,7 +333,7 @@ export default function OrderDetailPage() {
 
         <div className="space-y-6">
           <section className="bg-[var(--color-card)] rounded-lg border border-[var(--color-line)] p-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Resumo</h2>
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Totais</h2>
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-[var(--color-muted)]">Subtotal</span>
@@ -305,19 +355,24 @@ export default function OrderDetailPage() {
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-[var(--color-muted)]">Status</span>
-                <span className="text-slate-900">{order.latest_payment_status || "sem registro"}</span>
+                <OperationalBadge meta={paymentStatusMeta} emphasized />
               </div>
               <div className="flex justify-between">
                 <span className="text-[var(--color-muted)]">ID externo</span>
                 <span className="font-mono text-slate-900">{order.latest_payment_external_id || "-"}</span>
               </div>
+              {order.latest_payment_status == null && (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-[var(--color-muted)]">
+                  Nenhum pagamento foi iniciado ainda para este pedido.
+                </div>
+              )}
             </div>
           </section>
 
           <section className="bg-[var(--color-card)] rounded-lg border border-[var(--color-line)] p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-4">Atualizar Status</h2>
             <div className="flex flex-wrap gap-2">
-              {STATUSES.map((status) => {
+              {ORDER_STATUS_VALUES.map((status) => {
                 const isCurrentStatus = order.status === status;
                 const isValidTransition = isCurrentStatus || VALID_TRANSITIONS[order.status]?.includes(status) || false;
                 return (
@@ -333,7 +388,7 @@ export default function OrderDetailPage() {
                           : "bg-gray-50 text-gray-300 border border-gray-100 cursor-not-allowed"
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
-                    {status}
+                    {getOrderStatusMeta(status).label}
                   </button>
                 );
               })}
