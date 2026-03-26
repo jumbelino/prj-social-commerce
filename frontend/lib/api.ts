@@ -348,6 +348,7 @@ export function createAdminOrder(payload: OrderCreatePayload): Promise<OrderRead
 
 export function listAdminOrders(params?: {
   status?: string;
+  payment_status?: string;
   source?: string;
   start_date?: string;
   end_date?: string;
@@ -356,6 +357,7 @@ export function listAdminOrders(params?: {
 }): Promise<OrderRead[]> {
   const query = new URLSearchParams()
   if (params?.status) query.set("status", params.status)
+  if (params?.payment_status) query.set("payment_status", params.payment_status)
   if (params?.source) query.set("source", params.source)
   if (params?.start_date) query.set("start_date", params.start_date)
   if (params?.end_date) query.set("end_date", params.end_date)

@@ -1,23 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { getOrderStatusMeta, ORDER_STATUS_VALUES } from "@/lib/admin-order-display";
 import { updateAdminOrderStatus } from "@/lib/api";
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: "Pendente",
-  paid: "Pago",
-  shipped: "Enviado",
-  delivered: "Entregue",
-  cancelled: "Cancelado",
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-800",
-  paid: "bg-blue-100 text-blue-800",
-  shipped: "bg-purple-100 text-purple-800",
-  delivered: "bg-green-100 text-green-800",
-  cancelled: "bg-red-100 text-red-800",
-};
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ["paid", "cancelled"],
@@ -26,8 +11,6 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   delivered: [],
   cancelled: [],
 };
-
-const ALL_STATUSES = ["pending", "paid", "shipped", "delivered", "cancelled"] as const;
 
 interface OrderStatusUpdateProps {
   orderId: string;
@@ -45,6 +28,7 @@ export function OrderStatusUpdate({
   const [error, setError] = useState<string | null>(null);
 
   const validOptions = VALID_TRANSITIONS[currentStatus] || [];
+  const statusMeta = getOrderStatusMeta(status);
 
   const handleUpdate = async (newStatus: string) => {
     if (newStatus === currentStatus) return;
@@ -57,7 +41,7 @@ export function OrderStatusUpdate({
       setStatus(updated.status);
       onUpdated?.(updated.status);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update status");
+      setError(err instanceof Error ? err.message : "Falha ao atualizar status");
     } finally {
       setIsLoading(false);
     }
@@ -67,11 +51,9 @@ export function OrderStatusUpdate({
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-3">
         <span
-          className={`px-2 py-1 rounded text-sm font-medium ${
-            STATUS_COLORS[status] || "bg-gray-100 text-gray-800"
-          }`}
+          className={`rounded border px-2 py-1 text-sm font-medium ${statusMeta.className}`}
         >
-          {STATUS_LABELS[status] || status}
+          {statusMeta.label}
         </span>
 
         <select
@@ -80,12 +62,12 @@ export function OrderStatusUpdate({
           disabled={isLoading || validOptions.length === 0}
           className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm disabled:opacity-50"
         >
-          {ALL_STATUSES.map((s) => {
+          {ORDER_STATUS_VALUES.map((s) => {
             const isValidTransition =
               s === currentStatus || validOptions.includes(s);
             return (
               <option key={s} value={s} disabled={!isValidTransition}>
-                {STATUS_LABELS[s]}
+                {getOrderStatusMeta(s).label}
               </option>
             );
           })}
@@ -98,7 +80,7 @@ export function OrderStatusUpdate({
 
       {validOptions.length === 0 && currentStatus !== status && (
         <p className="text-xs text-gray-500">
-          No valid status transitions available
+          Não há transições de status disponíveis
         </p>
       )}
     </div>

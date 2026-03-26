@@ -434,6 +434,60 @@ test.describe("Admin Orders", () => {
     await expect(
       page.locator('select:has(option:has-text("Todos os status"))')
     ).toBeVisible();
+    await expect(
+      page.locator('select:has(option:has-text("Todos os pagamentos"))')
+    ).toBeVisible();
+  });
+
+  test("payment status filter is forwarded to admin orders API", async ({ page }) => {
+    let sawPendingFilter = false;
+    const testOrder = {
+      id: "00000000-0000-0000-0000-0000000000aa",
+      status: "pending",
+      delivery_method: "shipping",
+      customer_id: null,
+      customer_name: "Cliente Operacional",
+      customer_email: "operacional@example.com",
+      customer_phone: null,
+      source: "admin_assisted",
+      subtotal_cents: 8900,
+      shipping_cents: 1200,
+      shipping_provider: "melhor_envio",
+      shipping_service_id: 1,
+      shipping_service_name: "PAC",
+      shipping_delivery_days: 4,
+      shipping_from_postal_code: "01001000",
+      shipping_to_postal_code: "01310930",
+      shipping_quote_json: null,
+      total_cents: 10100,
+      expires_at: null,
+      inventory_released_at: null,
+      latest_payment_status: "pending",
+      latest_payment_external_id: "mp-pending-admin",
+      created_at: new Date().toISOString(),
+      items: [],
+    };
+
+    await page.route("**/api/admin/orders*", async (route) => {
+      const requestUrl = new URL(route.request().url());
+      if (requestUrl.searchParams.get("payment_status") === "pending") {
+        sawPendingFilter = true;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([testOrder]),
+      });
+    });
+
+    await gotoCurrentOriginPath(page, "/admin/orders");
+    await page.locator('select:has(option:has-text("Todos os pagamentos"))').selectOption("pending");
+
+    await expect
+      .poll(() => sawPendingFilter, { timeout: 5_000 })
+      .toBe(true);
+    await expect(page.getByText("Pagamento: Pendente")).toBeVisible();
   });
 
   test("can select an order and view details", async ({ page }) => {
@@ -457,6 +511,73 @@ test.describe("Admin Orders", () => {
     }
   });
 
+  test("order detail shows operational summary with payment and delivery context", async ({ page }) => {
+    const testOrderId = "00000000-0000-0000-0000-0000000000bb";
+    const testOrder = {
+      id: testOrderId,
+      status: "pending",
+      delivery_method: "pickup",
+      customer_id: 12,
+      customer_name: "Cliente Retirada",
+      customer_email: "retirada@example.com",
+      customer_phone: "+5511999999999",
+      source: "admin_assisted",
+      subtotal_cents: 7900,
+      shipping_cents: 0,
+      shipping_provider: null,
+      shipping_service_id: null,
+      shipping_service_name: null,
+      shipping_delivery_days: null,
+      shipping_from_postal_code: null,
+      shipping_to_postal_code: null,
+      shipping_quote_json: null,
+      total_cents: 7900,
+      expires_at: null,
+      inventory_released_at: null,
+      latest_payment_status: null,
+      latest_payment_external_id: null,
+      created_at: new Date().toISOString(),
+      items: [
+        {
+          id: "11111111-2222-3333-4444-555555555555",
+          variant_id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+          quantity: 1,
+          unit_price_cents: 7900,
+          total_cents: 7900,
+        },
+      ],
+    };
+
+    await page.route("**/api/**", async (route) => {
+      const url = route.request().url();
+      if (url.includes(`/api/admin/orders/${testOrderId}`)) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(testOrder),
+        });
+      }
+
+      if (url.includes("/api/admin/orders")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify([testOrder]),
+        });
+      }
+
+      return route.continue();
+    });
+
+    await gotoCurrentOriginPath(page, `/admin/orders/${testOrderId}`);
+
+    await expect(page.getByText("Resumo operacional")).toBeVisible();
+    await expect(page.getByText("Sem pagamento")).toBeVisible();
+    await expect(page.getByText("Venda assistida")).toBeVisible();
+    await expect(page.getByText("Retirada")).toBeVisible();
+    await expect(page.getByText("Nenhum pagamento foi iniciado ainda para este pedido.")).toBeVisible();
+  });
+
   test("can update order status", async ({ page }) => {
     await gotoCurrentOriginPath(page, "/admin/orders");
 
@@ -472,7 +593,7 @@ test.describe("Admin Orders", () => {
 
         await page.waitForTimeout(500);
 
-        const statusButtons = page.locator('section button:has-text("paid"), section button:has-text("shipped"), section button:has-text("delivered"), section button:has-text("cancelled")');
+        const statusButtons = page.locator('section button:has-text("Pago"), section button:has-text("Enviado"), section button:has-text("Entregue"), section button:has-text("Cancelado")');
 
         const count = await statusButtons.count();
         if (count > 0) {
@@ -569,8 +690,8 @@ test.describe("Admin Orders", () => {
 
     await expect(page.locator("h1")).toContainText(/Pedido/);
 
-    const shippedButton = page.locator('button:has-text("shipped")');
-    const deliveredButton = page.locator('button:has-text("delivered")');
+    const shippedButton = page.locator('button:has-text("Enviado")');
+    const deliveredButton = page.locator('button:has-text("Entregue")');
 
     await expect(shippedButton).toBeEnabled();
     await shippedButton.click();
@@ -582,7 +703,7 @@ test.describe("Admin Orders", () => {
     await deliveredButton.click();
     await page.waitForTimeout(500);
 
-    const isNowDelivered = await page.locator('button.bg-slate-900:has-text("delivered")').count() > 0;
+    const isNowDelivered = await page.locator('button.bg-slate-900:has-text("Entregue")').count() > 0;
     expect(isNowDelivered).toBe(true);
   });
 
@@ -669,11 +790,11 @@ test.describe("Admin Orders", () => {
 
     await expect(page.locator("h1")).toContainText(/Pedido/);
 
-    await expect(page.locator("text=pending").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("text=Pendente").first()).toBeVisible({ timeout: 10000 });
 
     await page.waitForTimeout(500);
 
-    const deliveredButton = page.locator('button:has-text("delivered")');
+    const deliveredButton = page.locator('button:has-text("Entregue")');
     if (await deliveredButton.isVisible()) {
       await deliveredButton.click();
       await page.waitForTimeout(1000);

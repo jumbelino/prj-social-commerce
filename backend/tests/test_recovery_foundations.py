@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import Principal, require_admin
 from app.models.customer import Customer
 from app.models.order import Order, OrderItem
+from app.models.payment import Payment
 from app.models.product import Product, ProductVariant
 
 
@@ -244,6 +245,72 @@ def test_admin_orders_can_filter_by_source(
     assert len(payload) == 1
     assert payload[0]["source"] == "admin_assisted"
     assert payload[0]["delivery_method"] == "pickup"
+
+
+def test_admin_orders_can_filter_by_latest_payment_status(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, approved_variant = _seed_product_with_variant(db_session, stock=6, price_cents=1800)
+    _, pending_variant = _seed_product_with_variant(db_session, stock=6, price_cents=2200)
+    _, no_payment_variant = _seed_product_with_variant(db_session, stock=6, price_cents=2600)
+
+    approved_order = _seed_sold_order(db_session, variant=approved_variant, status="paid")
+    pending_order = _seed_sold_order(db_session, variant=pending_variant, status="pending")
+    no_payment_order = _seed_sold_order(db_session, variant=no_payment_variant, status="pending")
+
+    db_session.add_all(
+        [
+            Payment(
+                order_id=approved_order.id,
+                provider="mercado_pago",
+                status="pending",
+                external_id="mp-approved-old",
+                created_at=datetime.now(timezone.utc) - timedelta(minutes=2),
+            ),
+            Payment(
+                order_id=approved_order.id,
+                provider="manual",
+                status="approved",
+                external_id="mp-approved-new",
+                created_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+            ),
+            Payment(
+                order_id=pending_order.id,
+                provider="mercado_pago",
+                status="pending",
+                external_id="mp-pending",
+                created_at=datetime.now(timezone.utc),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    approved_response = client.get("/admin/orders", params={"payment_status": "approved"})
+    assert approved_response.status_code == 200
+    approved_payload = approved_response.json()
+    assert [item["id"] for item in approved_payload] == [str(approved_order.id)]
+    assert approved_payload[0]["latest_payment_status"] == "approved"
+
+    combined_response = client.get(
+        "/admin/orders",
+        params={"payment_status": "approved", "source": "storefront", "status": "paid"},
+    )
+    assert combined_response.status_code == 200
+    combined_payload = combined_response.json()
+    assert [item["id"] for item in combined_payload] == [str(approved_order.id)]
+
+    pending_response = client.get("/admin/orders", params={"payment_status": "pending"})
+    assert pending_response.status_code == 200
+    pending_payload = pending_response.json()
+    assert [item["id"] for item in pending_payload] == [str(pending_order.id)]
+    assert pending_payload[0]["latest_payment_status"] == "pending"
+
+    none_response = client.get("/admin/orders", params={"payment_status": "none"})
+    assert none_response.status_code == 200
+    none_payload = none_response.json()
+    assert [item["id"] for item in none_payload] == [str(no_payment_order.id)]
+    assert none_payload[0]["latest_payment_status"] is None
 
 
 def test_products_list_supports_query_filter_for_title_and_sku(
