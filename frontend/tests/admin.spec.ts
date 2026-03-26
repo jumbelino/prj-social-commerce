@@ -548,6 +548,17 @@ test.describe("Admin Orders", () => {
       ],
     };
 
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        value: {
+          writeText: async (value: string) => {
+            (window as Window & { __copiedText?: string }).__copiedText = value;
+          },
+        },
+        configurable: true,
+      });
+    });
+
     await page.route("**/api/**", async (route) => {
       const url = route.request().url();
       if (url.includes(`/api/admin/orders/${testOrderId}`)) {
@@ -576,6 +587,326 @@ test.describe("Admin Orders", () => {
     await expect(page.getByText("Venda assistida")).toBeVisible();
     await expect(page.getByText("Retirada")).toBeVisible();
     await expect(page.getByText("Nenhum pagamento foi iniciado ainda para este pedido.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Ações rápidas" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Copiar ID do pedido" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Copiar contato" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Copiar CEP" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Copiar resumo de entrega" })).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Copiar contato" }).click();
+    await expect(page.getByText("Copiado")).toBeVisible();
+    const copiedText = await page.evaluate(() => (window as Window & { __copiedText?: string }).__copiedText);
+    expect(copiedText).toBe("Cliente Retirada | retirada@example.com | +5511999999999");
+  });
+
+  test("order detail shows shipping copy actions when delivery data exists", async ({ page }) => {
+    const testOrderId = "00000000-0000-0000-0000-0000000000bc";
+    const testOrder = {
+      id: testOrderId,
+      status: "pending",
+      delivery_method: "shipping",
+      customer_id: 15,
+      customer_name: "Cliente Envio",
+      customer_email: "envio@example.com",
+      customer_phone: "+5511888888888",
+      source: "storefront",
+      subtotal_cents: 9900,
+      shipping_cents: 1800,
+      shipping_provider: "melhor_envio",
+      shipping_service_id: 1,
+      shipping_service_name: "PAC",
+      shipping_delivery_days: 5,
+      shipping_from_postal_code: "01001000",
+      shipping_to_postal_code: "01310930",
+      shipping_quote_json: null,
+      total_cents: 11700,
+      expires_at: null,
+      inventory_released_at: null,
+      latest_payment_status: "pending",
+      latest_payment_external_id: "mp-order-detail-001",
+      created_at: new Date().toISOString(),
+      items: [
+        {
+          id: "11111111-3333-3333-4444-555555555555",
+          variant_id: "ffffffff-bbbb-cccc-dddd-eeeeeeeeeeee",
+          quantity: 1,
+          unit_price_cents: 9900,
+          total_cents: 9900,
+        },
+      ],
+    };
+
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        value: {
+          writeText: async (value: string) => {
+            (window as Window & { __copiedText?: string }).__copiedText = value;
+          },
+        },
+        configurable: true,
+      });
+    });
+
+    await page.route("**/payments/mercado-pago/preference", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          preference_id: "pref-order-detail-001",
+          init_point: "https://sandbox.mercadopago.com.br/checkout/start?pref_id=pref-order-detail-001",
+          sandbox_init_point: "https://sandbox.mercadopago.com.br/checkout/start?pref_id=pref-order-detail-001",
+          checkout_url: "https://sandbox.mercadopago.com.br/checkout/start?pref_id=pref-order-detail-001",
+          is_sandbox: true,
+        }),
+      });
+    });
+
+    await page.route("**/api/**", async (route) => {
+      const url = route.request().url();
+      if (url.includes(`/api/admin/orders/${testOrderId}`)) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(testOrder),
+        });
+      }
+
+      if (url.includes("/api/admin/orders")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify([testOrder]),
+        });
+      }
+
+      return route.continue();
+    });
+
+    await gotoCurrentOriginPath(page, `/admin/orders/${testOrderId}`);
+
+    await expect(page.getByText("Envio")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Copiar CEP" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Copiar resumo de entrega" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Copiar ID externo" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Gerar link de pagamento" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Copiar resumo de entrega" }).click();
+    await expect(page.getByText("Copiado")).toBeVisible();
+    const shippingSummary = await page.evaluate(
+      () => (window as Window & { __copiedText?: string }).__copiedText
+    );
+    expect(shippingSummary).toBe("PAC | 5 dias | CEP 01310930");
+
+    await page.getByRole("button", { name: "Gerar link de pagamento" }).click();
+    await expect(page.getByText("Link de pagamento gerado.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Copiar link" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Abrir checkout" })).toHaveAttribute(
+      "href",
+      "https://sandbox.mercadopago.com.br/checkout/start?pref_id=pref-order-detail-001"
+    );
+
+    await page.getByRole("button", { name: "Copiar link" }).click();
+    await expect(page.getByText("Copiado")).toBeVisible();
+    const copiedCheckoutLink = await page.evaluate(
+      () => (window as Window & { __copiedText?: string }).__copiedText
+    );
+    expect(copiedCheckoutLink).toBe(
+      "https://sandbox.mercadopago.com.br/checkout/start?pref_id=pref-order-detail-001"
+    );
+  });
+
+  test("order detail explains why payment link generation is unavailable", async ({ page }) => {
+    const testOrderId = "00000000-0000-0000-0000-0000000000bd";
+    const testOrder = {
+      id: testOrderId,
+      status: "pending",
+      delivery_method: "shipping",
+      customer_id: 18,
+      customer_name: "Cliente Sem Email",
+      customer_email: null,
+      customer_phone: "+5511777777777",
+      source: "storefront",
+      subtotal_cents: 8500,
+      shipping_cents: 1200,
+      shipping_provider: "melhor_envio",
+      shipping_service_id: 2,
+      shipping_service_name: "SEDEX",
+      shipping_delivery_days: 2,
+      shipping_from_postal_code: "01001000",
+      shipping_to_postal_code: "20040002",
+      shipping_quote_json: null,
+      total_cents: 9700,
+      expires_at: null,
+      inventory_released_at: null,
+      latest_payment_status: null,
+      latest_payment_external_id: null,
+      created_at: new Date().toISOString(),
+      items: [
+        {
+          id: "11111111-4444-3333-4444-555555555555",
+          variant_id: "gggggggg-bbbb-cccc-dddd-eeeeeeeeeeee",
+          quantity: 1,
+          unit_price_cents: 8500,
+          total_cents: 8500,
+        },
+      ],
+    };
+
+    await page.route("**/api/**", async (route) => {
+      const url = route.request().url();
+      if (url.includes(`/api/admin/orders/${testOrderId}`)) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(testOrder),
+        });
+      }
+
+      if (url.includes("/api/admin/orders")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify([testOrder]),
+        });
+      }
+
+      return route.continue();
+    });
+
+    await gotoCurrentOriginPath(page, `/admin/orders/${testOrderId}`);
+
+    await expect(page.getByRole("button", { name: "Gerar link de pagamento" })).toBeDisabled();
+    await expect(page.getByText("Email do cliente é necessário para gerar o link.")).toBeVisible();
+  });
+
+  test("order detail blocks payment link generation when payment is already approved", async ({ page }) => {
+    const testOrderId = "00000000-0000-0000-0000-0000000000be";
+    const testOrder = {
+      id: testOrderId,
+      status: "pending",
+      delivery_method: "shipping",
+      customer_id: 19,
+      customer_name: "Cliente Pago",
+      customer_email: "pago@example.com",
+      customer_phone: "+5511666666666",
+      source: "storefront",
+      subtotal_cents: 6500,
+      shipping_cents: 900,
+      shipping_provider: "melhor_envio",
+      shipping_service_id: 3,
+      shipping_service_name: "Mini Envios",
+      shipping_delivery_days: 3,
+      shipping_from_postal_code: "01001000",
+      shipping_to_postal_code: "30110028",
+      shipping_quote_json: null,
+      total_cents: 7400,
+      expires_at: null,
+      inventory_released_at: null,
+      latest_payment_status: "approved",
+      latest_payment_external_id: "mp-approved-001",
+      created_at: new Date().toISOString(),
+      items: [
+        {
+          id: "11111111-5555-3333-4444-555555555555",
+          variant_id: "hhhhhhhh-bbbb-cccc-dddd-eeeeeeeeeeee",
+          quantity: 1,
+          unit_price_cents: 6500,
+          total_cents: 6500,
+        },
+      ],
+    };
+
+    await page.route("**/api/**", async (route) => {
+      const url = route.request().url();
+      if (url.includes(`/api/admin/orders/${testOrderId}`)) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(testOrder),
+        });
+      }
+
+      if (url.includes("/api/admin/orders")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify([testOrder]),
+        });
+      }
+
+      return route.continue();
+    });
+
+    await gotoCurrentOriginPath(page, `/admin/orders/${testOrderId}`);
+
+    await expect(page.getByRole("button", { name: "Gerar link de pagamento" })).toBeDisabled();
+    await expect(page.getByText("Este pedido já possui pagamento aprovado.")).toBeVisible();
+    await expect(page.getByText("Pago")).toBeVisible();
+  });
+
+  test("order detail keeps payment link generation available after rejected payment", async ({ page }) => {
+    const testOrderId = "00000000-0000-0000-0000-0000000000bf";
+    const testOrder = {
+      id: testOrderId,
+      status: "pending",
+      delivery_method: "shipping",
+      customer_id: 20,
+      customer_name: "Cliente Rejeitado",
+      customer_email: "rejeitado@example.com",
+      customer_phone: "+5511555555555",
+      source: "admin_assisted",
+      subtotal_cents: 7300,
+      shipping_cents: 1100,
+      shipping_provider: "melhor_envio",
+      shipping_service_id: 4,
+      shipping_service_name: "PAC",
+      shipping_delivery_days: 4,
+      shipping_from_postal_code: "01001000",
+      shipping_to_postal_code: "40010000",
+      shipping_quote_json: null,
+      total_cents: 8400,
+      expires_at: null,
+      inventory_released_at: null,
+      latest_payment_status: "rejected",
+      latest_payment_external_id: "mp-rejected-001",
+      created_at: new Date().toISOString(),
+      items: [
+        {
+          id: "11111111-6666-3333-4444-555555555555",
+          variant_id: "iiiiiiii-bbbb-cccc-dddd-eeeeeeeeeeee",
+          quantity: 1,
+          unit_price_cents: 7300,
+          total_cents: 7300,
+        },
+      ],
+    };
+
+    await page.route("**/api/**", async (route) => {
+      const url = route.request().url();
+      if (url.includes(`/api/admin/orders/${testOrderId}`)) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(testOrder),
+        });
+      }
+
+      if (url.includes("/api/admin/orders")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify([testOrder]),
+        });
+      }
+
+      return route.continue();
+    });
+
+    await gotoCurrentOriginPath(page, `/admin/orders/${testOrderId}`);
+
+    await expect(page.getByText("Falha")).toBeVisible();
+    await expect(page.getByText("Venda assistida")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Gerar link de pagamento" })).toBeEnabled();
   });
 
   test("can update order status", async ({ page }) => {

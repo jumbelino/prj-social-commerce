@@ -12,8 +12,25 @@ import {
   ORDER_STATUS_VALUES,
 } from "@/lib/admin-order-display";
 import OperationalBadge from "@/components/admin/OperationalBadge";
-import { ApiRequestError, getAdminOrderById, updateAdminOrderStatus, type OrderRead } from "@/lib/api";
+import {
+  ApiRequestError,
+  createMercadoPagoPreference,
+  getAdminOrderById,
+  updateAdminOrderStatus,
+  type MercadoPagoPreferenceResponse,
+  type OrderRead,
+} from "@/lib/api";
 import { formatCents } from "@/lib/currency";
+import {
+  buildCustomerContactCopy,
+  buildCustomerEmailCopy,
+  buildCustomerNameCopy,
+  buildCustomerPhoneCopy,
+  buildExternalPaymentIdCopy,
+  buildOrderIdCopy,
+  buildShippingPostalCodeCopy,
+  buildShippingSummaryCopy,
+} from "@/lib/order-quick-actions";
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ["paid", "cancelled"],
@@ -32,6 +49,11 @@ export default function OrderDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [paymentLink, setPaymentLink] = useState<MercadoPagoPreferenceResponse | null>(null);
+  const [isGeneratingPaymentLink, setIsGeneratingPaymentLink] = useState(false);
+  const [paymentLinkError, setPaymentLinkError] = useState<string | null>(null);
+  const [paymentLinkMessage, setPaymentLinkMessage] = useState<string | null>(null);
   const [retryTrigger, setRetryTrigger] = useState(0);
 
   useEffect(() => {
@@ -45,6 +67,9 @@ export default function OrderDetailPage() {
         const data = await getAdminOrderById(orderId);
         if (isActive) {
           setOrder(data);
+          setPaymentLink(null);
+          setPaymentLinkError(null);
+          setPaymentLinkMessage(null);
         }
       } catch (error) {
         const message =
@@ -83,6 +108,41 @@ export default function OrderDetailPage() {
       setErrorMessage(message);
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleCopy = async (value: string | null) => {
+    if (!value) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopyFeedback({ type: "success", message: "Copiado" });
+    } catch {
+      setCopyFeedback({ type: "error", message: "Não foi possível copiar" });
+    }
+  };
+
+  const handleGeneratePaymentLink = async () => {
+    if (!order) {
+      return;
+    }
+
+    setIsGeneratingPaymentLink(true);
+    setPaymentLinkError(null);
+    setPaymentLinkMessage(null);
+
+    try {
+      const preference = await createMercadoPagoPreference(order.id, window.location.origin);
+      setPaymentLink(preference);
+      setPaymentLinkMessage("Link de pagamento gerado.");
+    } catch (error) {
+      const message =
+        error instanceof ApiRequestError ? error.message : "Não foi possível gerar o link de pagamento";
+      setPaymentLinkError(message);
+    } finally {
+      setIsGeneratingPaymentLink(false);
     }
   };
 
@@ -137,6 +197,35 @@ export default function OrderDetailPage() {
   const paymentStatusMeta = getPaymentStatusMeta(order.latest_payment_status);
   const sourceMeta = getOrderSourceMeta(order.source);
   const deliveryMeta = getDeliveryMethodMeta(order.delivery_method);
+  const hasExpired = order.expires_at ? new Date(order.expires_at).getTime() <= Date.now() : false;
+  const hasCustomerEmail = typeof order.customer_email === "string" && order.customer_email.trim() !== "";
+  const paymentStatus = order.latest_payment_status;
+  const paymentLinkEligibilityReason =
+    order.status !== "pending"
+      ? "O link só fica disponível para pedidos pendentes."
+      : !hasCustomerEmail
+        ? "Email do cliente é necessário para gerar o link."
+        : hasExpired
+          ? "Este pedido expirou e não pode gerar novo link."
+          : paymentStatus === "approved"
+            ? "Este pedido já possui pagamento aprovado."
+            : paymentStatus === "cancelled" || paymentStatus === "canceled"
+              ? "Este pagamento foi cancelado."
+              : paymentStatus === "expired"
+                ? "Este pagamento expirou."
+                : null;
+  const canGeneratePaymentLink = paymentLinkEligibilityReason === null;
+  const canGenerateNewPaymentLink = canGeneratePaymentLink && paymentLink === null;
+  const copyActions = {
+    orderId: buildOrderIdCopy(order),
+    customerName: buildCustomerNameCopy(order),
+    customerEmail: buildCustomerEmailCopy(order),
+    customerPhone: buildCustomerPhoneCopy(order),
+    customerContact: buildCustomerContactCopy(order),
+    shippingPostalCode: buildShippingPostalCodeCopy(order),
+    shippingSummary: buildShippingSummaryCopy(order),
+    externalPaymentId: buildExternalPaymentIdCopy(order),
+  };
   const createdAtLabel = new Date(order.created_at).toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
@@ -332,6 +421,183 @@ export default function OrderDetailPage() {
         </div>
 
         <div className="space-y-6">
+          <section className="bg-[var(--color-card)] rounded-lg border border-[var(--color-line)] p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Ações rápidas</h2>
+                <p className="mt-1 text-sm text-[var(--color-muted)]">
+                  Copie os dados úteis do pedido sem selecionar texto manualmente.
+                </p>
+              </div>
+              {copyFeedback ? (
+                <span
+                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                    copyFeedback.type === "success"
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-rose-50 text-rose-700"
+                  }`}
+                >
+                  {copyFeedback.message}
+                </span>
+              ) : null}
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
+                  Pedido
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => handleCopy(copyActions.orderId)}
+                    className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+                  >
+                    Copiar ID do pedido
+                  </button>
+                </div>
+              </div>
+
+              {(copyActions.customerName ||
+                copyActions.customerEmail ||
+                copyActions.customerPhone ||
+                copyActions.customerContact) && (
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
+                    Cliente
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {copyActions.customerName ? (
+                      <button
+                        onClick={() => handleCopy(copyActions.customerName)}
+                        className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+                      >
+                        Copiar nome
+                      </button>
+                    ) : null}
+                    {copyActions.customerEmail ? (
+                      <button
+                        onClick={() => handleCopy(copyActions.customerEmail)}
+                        className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+                      >
+                        Copiar email
+                      </button>
+                    ) : null}
+                    {copyActions.customerPhone ? (
+                      <button
+                        onClick={() => handleCopy(copyActions.customerPhone)}
+                        className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+                      >
+                        Copiar telefone
+                      </button>
+                    ) : null}
+                    {copyActions.customerContact ? (
+                      <button
+                        onClick={() => handleCopy(copyActions.customerContact)}
+                        className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+                      >
+                        Copiar contato
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+
+              {(copyActions.shippingPostalCode || copyActions.shippingSummary) && (
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
+                    Entrega
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {copyActions.shippingPostalCode ? (
+                      <button
+                        onClick={() => handleCopy(copyActions.shippingPostalCode)}
+                        className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+                      >
+                        Copiar CEP
+                      </button>
+                    ) : null}
+                    {copyActions.shippingSummary ? (
+                      <button
+                        onClick={() => handleCopy(copyActions.shippingSummary)}
+                        className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+                      >
+                        Copiar resumo de entrega
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+
+              {copyActions.externalPaymentId ? (
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
+                    Pagamento
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      onClick={() => handleCopy(copyActions.externalPaymentId)}
+                      className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+                    >
+                      Copiar ID externo
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
+                  Cobrança
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    onClick={handleGeneratePaymentLink}
+                    disabled={!canGenerateNewPaymentLink || isGeneratingPaymentLink}
+                    className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                      canGenerateNewPaymentLink
+                        ? "border border-[var(--color-line)] bg-white text-slate-700 hover:border-slate-300 hover:text-slate-900"
+                        : "cursor-not-allowed border border-slate-200 bg-slate-50 text-slate-400"
+                    } disabled:cursor-not-allowed disabled:opacity-70`}
+                  >
+                    {isGeneratingPaymentLink
+                      ? "Gerando link..."
+                      : paymentLink
+                        ? "Link já gerado"
+                        : "Gerar link de pagamento"}
+                  </button>
+
+                  {paymentLink?.checkout_url ? (
+                    <>
+                      <button
+                        onClick={() => handleCopy(paymentLink.checkout_url)}
+                        className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+                      >
+                        Copiar link
+                      </button>
+                      <a
+                        href={paymentLink.checkout_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+                      >
+                        Abrir checkout
+                      </a>
+                    </>
+                  ) : null}
+                </div>
+
+                {paymentLinkEligibilityReason ? (
+                  <p className="mt-2 text-xs text-[var(--color-muted)]">{paymentLinkEligibilityReason}</p>
+                ) : null}
+                {paymentLinkMessage ? (
+                  <p className="mt-2 text-xs font-medium text-emerald-700">{paymentLinkMessage}</p>
+                ) : null}
+                {paymentLinkError ? (
+                  <p className="mt-2 text-xs font-medium text-rose-700">{paymentLinkError}</p>
+                ) : null}
+              </div>
+            </div>
+          </section>
+
           <section className="bg-[var(--color-card)] rounded-lg border border-[var(--color-line)] p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-4">Totais</h2>
             <div className="space-y-3">
