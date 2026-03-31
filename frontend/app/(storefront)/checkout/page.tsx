@@ -30,6 +30,23 @@ type CheckoutForm = {
   customerPhone: string;
 };
 
+type AddressForm = {
+  street: string;
+  number: string;
+  complement: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+};
+
+type ViaCepResult = {
+  logradouro: string;
+  bairro: string;
+  localidade: string;
+  uf: string;
+  erro?: boolean;
+};
+
 type SubmissionStage =
   | "idle"
   | "creating_order"
@@ -67,9 +84,22 @@ function formatPostalCode(value: string | null): string {
   return `${value.slice(0, 5)}-${value.slice(5)}`;
 }
 
+async function fetchViaCep(cep: string): Promise<ViaCepResult | null> {
+  if (cep.length !== 8) return null;
+  try {
+    const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    if (!res.ok) return null;
+    const data = (await res.json()) as ViaCepResult;
+    if (data.erro) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, totalCents, selectedShipping, destinationPostalCode } = useCart();
+  const { items, deliveryMethod, totalCents, selectedShipping, destinationPostalCode } = useCart();
 
   const [form, setForm] = useState<CheckoutForm>({
     customerName: "",
@@ -87,29 +117,73 @@ export default function CheckoutPage() {
   const [orderError, setOrderError] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
+  const isPickup = deliveryMethod === "pickup";
+  const [address, setAddress] = useState<AddressForm>({
+    street: "",
+    number: "",
+    complement: "",
+    neighborhood: "",
+    city: "",
+    state: "",
+  });
+  const [isFetchingAddress, setIsFetchingAddress] = useState(false);
+  const [addressFetchedForCep, setAddressFetchedForCep] = useState<string | null>(null);
+
   const shippingCents = selectedShipping?.priceCents ?? 0;
   const totalWithShippingCents = totalCents + shippingCents;
   const destinationPostalCodeDigits = destinationPostalCode ?? "";
 
+  // Auto-busca ViaCEP quando CEP muda e delivery é shipping
   useEffect(() => {
-    if (items.length === 0 || selectedShipping !== null) {
+    if (isPickup || destinationPostalCodeDigits.length !== 8) return;
+    if (addressFetchedForCep === destinationPostalCodeDigits) return;
+
+    setIsFetchingAddress(true);
+    fetchViaCep(destinationPostalCodeDigits).then((result) => {
+      if (result) {
+        setAddress((prev) => ({
+          ...prev,
+          street: result.logradouro || prev.street,
+          neighborhood: result.bairro || prev.neighborhood,
+          city: result.localidade || prev.city,
+          state: result.uf || prev.state,
+        }));
+      }
+      setAddressFetchedForCep(destinationPostalCodeDigits);
+      setIsFetchingAddress(false);
+    });
+  }, [destinationPostalCodeDigits, isPickup, addressFetchedForCep]);
+
+  useEffect(() => {
+    // Para envio: precisa de frete selecionado. Para retirada: só precisa de itens.
+    const needsRedirect = items.length === 0 || (!isPickup && selectedShipping === null);
+    if (!needsRedirect) {
       setIsRedirectingToCart(false);
       return;
     }
-
     setIsRedirectingToCart(true);
     router.replace("/cart");
-  }, [items.length, router, selectedShipping]);
+  }, [items.length, isPickup, router, selectedShipping]);
+
+  const addressIsValid = useMemo(
+    () =>
+      isPickup ||
+      (address.street.trim() !== "" &&
+        address.number.trim() !== "" &&
+        address.city.trim() !== "" &&
+        address.state.trim().length === 2),
+    [isPickup, address.street, address.number, address.city, address.state],
+  );
 
   const canSubmit = useMemo(
     () =>
       items.length > 0 &&
       !isSubmitting &&
       !isRedirectingToCart &&
-      selectedShipping !== null &&
-      destinationPostalCodeDigits.length === 8 &&
+      (isPickup || (selectedShipping !== null && destinationPostalCodeDigits.length === 8)) &&
+      addressIsValid &&
       (paymentMethod === "checkout_pro" || paymentMethod === "pix"),
-    [destinationPostalCodeDigits.length, isRedirectingToCart, isSubmitting, items.length, paymentMethod, selectedShipping],
+    [addressIsValid, destinationPostalCodeDigits.length, isPickup, isRedirectingToCart, isSubmitting, items.length, paymentMethod, selectedShipping],
   );
 
   const submissionCallout = useMemo(() => {
@@ -162,7 +236,7 @@ export default function CheckoutPage() {
     setPixPayment(null);
     setIsRedirecting(false);
 
-    if (!selectedShipping || destinationPostalCodeDigits.length !== 8) {
+    if (!isPickup && (!selectedShipping || destinationPostalCodeDigits.length !== 8)) {
       setOrderError("Selecione um frete valido no carrinho antes de continuar.");
       setSubmissionStage("idle");
       setIsSubmitting(false);
@@ -171,6 +245,7 @@ export default function CheckoutPage() {
 
     try {
       const createdOrder = await createOrder({
+        delivery_method: isPickup ? "pickup" : "shipping",
         customer_name: form.customerName || undefined,
         customer_email: form.customerEmail || undefined,
         customer_phone: form.customerPhone ? `+55${form.customerPhone.replace(/\D/g, "")}` : undefined,
@@ -178,15 +253,25 @@ export default function CheckoutPage() {
           variant_id: item.variantId,
           quantity: item.quantity,
         })),
-        shipping: {
-          provider: "melhor_envio",
-          service_id: selectedShipping.serviceId,
-          service_name: selectedShipping.serviceName,
-          delivery_days: selectedShipping.deliveryDays,
-          price_cents: selectedShipping.priceCents,
-          to_postal_code: destinationPostalCodeDigits,
-          quote_json: (selectedShipping.quoteRaw as Record<string, unknown> | undefined) ?? null,
-        },
+        ...(!isPickup && selectedShipping
+          ? {
+              shipping: {
+                provider: "melhor_envio" as const,
+                service_id: selectedShipping.serviceId,
+                service_name: selectedShipping.serviceName,
+                delivery_days: selectedShipping.deliveryDays,
+                price_cents: selectedShipping.priceCents,
+                to_postal_code: destinationPostalCodeDigits,
+                quote_json: (selectedShipping.quoteRaw as Record<string, unknown> | undefined) ?? null,
+                address_street: address.street.trim() || undefined,
+                address_number: address.number.trim() || undefined,
+                address_complement: address.complement.trim() || undefined,
+                address_neighborhood: address.neighborhood.trim() || undefined,
+                address_city: address.city.trim() || undefined,
+                address_state: address.state.trim() || undefined,
+              },
+            }
+          : {}),
       });
 
       setOrder(createdOrder);
@@ -353,6 +438,110 @@ export default function CheckoutPage() {
                 </label>
               </div>
             </PurchaseSectionCard>
+
+            {/* Seção de endereço — só para envio */}
+            {!isPickup ? (
+              <PurchaseSectionCard
+                eyebrow="Endereço de entrega"
+                title="Para onde vamos enviar?"
+                description={
+                  isFetchingAddress
+                    ? "Buscando endereço pelo CEP..."
+                    : "Preencha o endereço completo. O logradouro e cidade são preenchidos automaticamente pelo CEP."
+                }
+              >
+                <div className="grid gap-4">
+                  <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_140px]">
+                    <label className="block text-sm font-semibold text-[var(--color-text-primary)]" htmlFor="addrStreet">
+                      Logradouro (rua, avenida…) *
+                      <input
+                        id="addrStreet"
+                        required
+                        className="mt-2 w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-3)] px-4 py-3 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-line-strong)]"
+                        value={address.street}
+                        onChange={(e) => setAddress((prev) => ({ ...prev, street: e.target.value }))}
+                        placeholder="Rua das Flores"
+                      />
+                    </label>
+                    <label className="block text-sm font-semibold text-[var(--color-text-primary)]" htmlFor="addrNumber">
+                      Número *
+                      <input
+                        id="addrNumber"
+                        required
+                        className="mt-2 w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-3)] px-4 py-3 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-line-strong)]"
+                        value={address.number}
+                        onChange={(e) => setAddress((prev) => ({ ...prev, number: e.target.value }))}
+                        placeholder="123"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="block text-sm font-semibold text-[var(--color-text-primary)]" htmlFor="addrComplement">
+                      Complemento
+                      <input
+                        id="addrComplement"
+                        className="mt-2 w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-3)] px-4 py-3 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-line-strong)]"
+                        value={address.complement}
+                        onChange={(e) => setAddress((prev) => ({ ...prev, complement: e.target.value }))}
+                        placeholder="Apto 2, Bloco B…"
+                      />
+                    </label>
+                    <label className="block text-sm font-semibold text-[var(--color-text-primary)]" htmlFor="addrNeighborhood">
+                      Bairro
+                      <input
+                        id="addrNeighborhood"
+                        className="mt-2 w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-3)] px-4 py-3 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-line-strong)]"
+                        value={address.neighborhood}
+                        onChange={(e) => setAddress((prev) => ({ ...prev, neighborhood: e.target.value }))}
+                        placeholder="Centro"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_80px]">
+                    <label className="block text-sm font-semibold text-[var(--color-text-primary)]" htmlFor="addrCity">
+                      Cidade *
+                      <input
+                        id="addrCity"
+                        required
+                        className="mt-2 w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-3)] px-4 py-3 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-line-strong)]"
+                        value={address.city}
+                        onChange={(e) => setAddress((prev) => ({ ...prev, city: e.target.value }))}
+                        placeholder="São Paulo"
+                      />
+                    </label>
+                    <label className="block text-sm font-semibold text-[var(--color-text-primary)]" htmlFor="addrState">
+                      UF *
+                      <input
+                        id="addrState"
+                        required
+                        maxLength={2}
+                        className="mt-2 w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-3)] px-4 py-3 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-line-strong)] uppercase"
+                        value={address.state}
+                        onChange={(e) => setAddress((prev) => ({ ...prev, state: e.target.value.toUpperCase().slice(0, 2) }))}
+                        placeholder="SP"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="rounded-[18px] border border-[var(--color-line)] bg-[var(--color-surface-2)] px-4 py-3 text-xs text-[var(--color-text-muted)]">
+                    CEP: <span className="font-semibold text-[var(--color-text-secondary)]">{formatPostalCode(destinationPostalCodeDigits)}</span>
+                    {" · "}Campos com * são obrigatórios
+                  </div>
+                </div>
+              </PurchaseSectionCard>
+            ) : (
+              <PurchaseSectionCard
+                eyebrow="Retirada"
+                title="Pedido para retirada no local"
+                description="Nenhum endereço de entrega necessário. Combinaremos o ponto de retirada após a confirmação do pedido."
+              >
+                <div className="rounded-[22px] border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4 text-sm text-[var(--color-text-secondary)]">
+                  O endereço e horário de retirada serão informados pelo vendedor após o pagamento confirmado.
+                </div>
+              </PurchaseSectionCard>
+            )}
 
             <PurchaseSectionCard
               eyebrow="Pagamento"
@@ -585,13 +774,20 @@ export default function CheckoutPage() {
               </div>
 
               <div className="rounded-[22px] border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4 text-sm text-[var(--color-text-secondary)]">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--color-text-muted)]">Frete escolhido</p>
-                {selectedShipping ? (
+                <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--color-text-muted)]">Entrega</p>
+                {isPickup ? (
+                  <p className="mt-2 font-semibold text-[var(--color-text-primary)]">Retirada no local</p>
+                ) : selectedShipping ? (
                   <>
                     <p className="mt-2 font-semibold text-[var(--color-text-primary)]">{selectedShipping.serviceName}</p>
                     <p className="mt-1 leading-6">
                       {selectedShipping.deliveryDays} dia(s) · CEP {formatPostalCode(destinationPostalCodeDigits)}
                     </p>
+                    {address.street ? (
+                      <p className="mt-1 leading-6 text-xs">
+                        {address.street}, {address.number}{address.complement ? `, ${address.complement}` : ""} — {address.city}/{address.state}
+                      </p>
+                    ) : null}
                   </>
                 ) : (
                   <p className="mt-2">Nenhum frete selecionado.</p>
@@ -601,7 +797,7 @@ export default function CheckoutPage() {
               <div className="rounded-[22px] border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4">
                 <dl className="space-y-3">
                   <SummaryRow label="Subtotal" value={formatCents(totalCents)} />
-                  <SummaryRow label="Frete" value={formatCents(shippingCents)} />
+                  <SummaryRow label="Frete" value={isPickup ? "Retirada (grátis)" : formatCents(shippingCents)} />
                   <div className="border-t border-[var(--color-line)] pt-3">
                     <SummaryRow label="Total" value={formatCents(totalWithShippingCents)} strong />
                   </div>

@@ -19,7 +19,6 @@ function normalizeVariantAttributes(variant: Product["variants"][number]): Recor
   if (typeof rawAttrs !== "object" || rawAttrs === null) {
     return {};
   }
-
   return Object.fromEntries(
     Object.entries(rawAttrs as Record<string, unknown>)
       .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== "")
@@ -27,48 +26,64 @@ function normalizeVariantAttributes(variant: Product["variants"][number]): Recor
   );
 }
 
-function availabilityCopy(product: Product | null, variant: Product["variants"][number] | null): {
-  label: string;
-  description: string;
-  tone: "success" | "warning" | "danger";
-} {
-  if (!product || product.variants.length === 0) {
-    return {
-      label: "Sem variantes disponiveis",
-      description: "Este produto ainda nao possui uma opcao valida para compra.",
-      tone: "danger",
-    };
+// Retorna as dimensões únicas presentes entre todas as variantes, ex: ["tamanho", "cor"]
+function extractDimensions(variants: Product["variants"]): string[] {
+  const dims = new Set<string>();
+  for (const v of variants) {
+    for (const key of Object.keys(normalizeVariantAttributes(v))) {
+      dims.add(key);
+    }
   }
+  // tamanho/size primeiro, cor/color depois, restantes em ordem
+  const priority = ["tamanho", "size", "cor", "color", "modelo", "modelo"];
+  return [
+    ...priority.filter((k) => dims.has(k)),
+    ...[...dims].filter((k) => !priority.includes(k)),
+  ];
+}
 
-  if (!variant) {
-    return {
-      label: "Selecione uma variante",
-      description: "Escolha uma opcao para confirmar exatamente o que vai para o carrinho.",
-      tone: "warning",
-    };
+// Retorna valores únicos de uma dimensão entre todas as variantes
+function valuesForDimension(variants: Product["variants"], dim: string): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const v of variants) {
+    const val = normalizeVariantAttributes(v)[dim];
+    if (val && !seen.has(val)) {
+      seen.add(val);
+      result.push(val);
+    }
   }
+  return result;
+}
 
-  if (variant.stock <= 0) {
-    return {
-      label: "Sem estoque no momento",
-      description: "Esta variante existe no catalogo, mas esta indisponivel para compra agora.",
-      tone: "danger",
-    };
-  }
+// Dado um conjunto de seleções, encontra a variante que satisfaz todas elas
+function findVariantForSelection(
+  variants: Product["variants"],
+  selection: Record<string, string>,
+  dimensions: string[]
+): Product["variants"][number] | null {
+  if (dimensions.length === 0) return null;
+  const entries = Object.entries(selection);
+  if (entries.length !== dimensions.length) return null;
 
-  if (variant.stock <= 3) {
-    return {
-      label: "Estoque baixo",
-      description: `Restam ${variant.stock} unidade(s) desta variante.`,
-      tone: "warning",
-    };
-  }
+  return (
+    variants.find((v) => {
+      const attrs = normalizeVariantAttributes(v);
+      return entries.every(([key, value]) => attrs[key] === value);
+    }) ?? null
+  );
+}
 
-  return {
-    label: "Disponivel para compra",
-    description: `${variant.stock} unidade(s) prontas para seguir ao carrinho.`,
-    tone: "success",
-  };
+// Verifica se uma combinação parcial tem alguma variante com estoque
+function hasAnyStockForPartial(
+  variants: Product["variants"],
+  partial: Record<string, string>
+): boolean {
+  const entries = Object.entries(partial);
+  return variants.some((v) => {
+    const attrs = normalizeVariantAttributes(v);
+    return entries.every(([key, value]) => attrs[key] === value) && v.stock > 0;
+  });
 }
 
 export default function ProductDetailPage() {
@@ -80,7 +95,8 @@ export default function ProductDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastInfo>(null);
-  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+  // seleção por dimensão, ex: { tamanho: "M", cor: "Preta" }
+  const [selectedDimensions, setSelectedDimensions] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let isActive = true;
@@ -88,13 +104,12 @@ export default function ProductDetailPage() {
     async function run() {
       setIsLoading(true);
       setErrorMessage(null);
+      setSelectedDimensions({});
 
       try {
         const data = await getProductById(productId);
         if (isActive) {
           setProduct(data);
-          const firstAvailableVariant = data.variants.find((variant) => variant.stock > 0) ?? data.variants[0] ?? null;
-          setSelectedVariantId(firstAvailableVariant?.id ?? null);
         }
       } catch (error) {
         const message =
@@ -102,7 +117,6 @@ export default function ProductDetailPage() {
         if (isActive) {
           setErrorMessage(message);
           setProduct(null);
-          setSelectedVariantId(null);
         }
       } finally {
         if (isActive) {
@@ -118,38 +132,69 @@ export default function ProductDetailPage() {
     };
   }, [productId]);
 
-  const hasVariants = useMemo(() => (product?.variants.length ?? 0) > 0, [product]);
-  const selectedVariant = useMemo(
-    () => product?.variants.find((variant) => variant.id === selectedVariantId) ?? null,
-    [product, selectedVariantId]
-  );
-  const selectedVariantAttributes = useMemo(
-    () => (selectedVariant ? normalizeVariantAttributes(selectedVariant) : {}),
-    [selectedVariant]
-  );
-  const availability = useMemo(
-    () => availabilityCopy(product, selectedVariant),
-    [product, selectedVariant]
-  );
-  const canAddSelectedVariant = selectedVariant !== null && selectedVariant.stock > 0;
+  const dimensions = useMemo(() => (product ? extractDimensions(product.variants) : []), [product]);
+  const hasDimensions = dimensions.length > 0;
 
-  const handleAddVariant = useCallback(
-    (variant: Product["variants"][number]) => {
-      const attributes = normalizeVariantAttributes(variant);
+  // variante resolvida quando todas as dimensões foram selecionadas
+  const selectedVariant = useMemo(() => {
+    if (!product || !hasDimensions) return null;
+    return findVariantForSelection(product.variants, selectedDimensions, dimensions);
+  }, [product, selectedDimensions, dimensions, hasDimensions]);
 
-      addItem({
-        productId: product!.id,
-        productTitle: product!.title,
-        variantId: variant.id,
-        sku: variant.sku,
-        unitPriceCents: variant.price_cents,
-        ...(Object.keys(attributes).length > 0 ? { attributes } : {}),
-      });
+  const allDimensionsSelected = hasDimensions && dimensions.every((d) => d in selectedDimensions);
+  const canAddToCart = allDimensionsSelected && selectedVariant !== null && selectedVariant.stock > 0;
 
-      setToast({ productTitle: product!.title, sku: variant.sku });
-    },
-    [addItem, product],
+  const handleSelectDimension = useCallback((dim: string, value: string) => {
+    setSelectedDimensions((prev) => ({ ...prev, [dim]: value }));
+  }, []);
+
+  const handleAddToCart = useCallback(() => {
+    if (!product || !selectedVariant) return;
+    const attributes = normalizeVariantAttributes(selectedVariant);
+
+    addItem({
+      productId: product.id,
+      productTitle: product.title,
+      variantId: selectedVariant.id,
+      sku: selectedVariant.sku,
+      unitPriceCents: selectedVariant.price_cents,
+      ...(Object.keys(attributes).length > 0 ? { attributes } : {}),
+    });
+
+    setToast({ productTitle: product.title, sku: selectedVariant.sku });
+  }, [addItem, product, selectedVariant]);
+
+  // fallback: variantes sem atributos — usa seleção por card como antes
+  const useFallbackCardSelector = product !== null && product.variants.length > 0 && !hasDimensions;
+  const [fallbackSelectedId, setFallbackSelectedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (useFallbackCardSelector && product) {
+      const first = product.variants.find((v) => v.stock > 0) ?? product.variants[0] ?? null;
+      setFallbackSelectedId(first?.id ?? null);
+    }
+  }, [useFallbackCardSelector, product]);
+
+  const fallbackVariant = useMemo(
+    () => product?.variants.find((v) => v.id === fallbackSelectedId) ?? null,
+    [product, fallbackSelectedId]
   );
+
+  const handleAddFallback = useCallback(() => {
+    if (!product || !fallbackVariant) return;
+    addItem({
+      productId: product.id,
+      productTitle: product.title,
+      variantId: fallbackVariant.id,
+      sku: fallbackVariant.sku,
+      unitPriceCents: fallbackVariant.price_cents,
+    });
+    setToast({ productTitle: product.title, sku: fallbackVariant.sku });
+  }, [addItem, product, fallbackVariant]);
+
+  // preço e status da variante resolvida (ou fallback)
+  const resolvedVariant = hasDimensions ? selectedVariant : fallbackVariant;
+  const resolvedPrice = resolvedVariant?.price_cents ?? null;
 
   return (
     <div className="space-y-6">
@@ -169,9 +214,6 @@ export default function ProductDetailPage() {
           <span aria-hidden="true">←</span>
           Voltar ao catalogo
         </Link>
-        <span className="rounded-full border border-[var(--color-line)] px-3 py-2 text-xs uppercase tracking-[0.18em]">
-          Detalhe do produto
-        </span>
       </div>
 
       {errorMessage ? (
@@ -192,136 +234,185 @@ export default function ProductDetailPage() {
       {isLoading ? (
         <LoadingState
           title="Carregando produto"
-          message="Buscando fotos, variantes e disponibilidade para montar a pagina de compra."
+          message="Buscando fotos, variantes e disponibilidade."
         />
       ) : null}
 
       {product ? (
         <section className="grid gap-6 lg:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)] lg:items-start">
+          {/* Coluna esquerda: imagens */}
           <div className="space-y-4">
             <ProductImageCarousel images={product.images} />
-            <PublicPanel>
-              <div className="flex flex-wrap items-center gap-2">
+            {product.images.length > 0 ? (
+              <PublicPanel>
                 <span className="rounded-full border border-[var(--color-line)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--color-text-muted)]">
-                  {product.images.length > 0 ? `${product.images.length} foto(s)` : "Sem fotos"}
+                  {product.images.length} foto(s)
                 </span>
-                <span className="rounded-full border border-[var(--color-line)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--color-text-muted)]">
-                  {product.variants.length} {product.variants.length === 1 ? "variante" : "variantes"}
-                </span>
-              </div>
-            </PublicPanel>
+              </PublicPanel>
+            ) : null}
           </div>
 
+          {/* Coluna direita: info + seletor */}
           <div className="space-y-5 rounded-[28px] border border-[var(--color-line)] bg-[linear-gradient(180deg,rgba(16,26,47,0.96),rgba(10,18,33,0.96))] p-6 shadow-[0_20px_54px_rgba(0,0,0,0.24)]">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
-                  Produto
+            {/* Título e descrição */}
+            <div className="space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
+                Produto
+              </p>
+              <h1 className="font-display text-3xl font-semibold leading-tight text-[var(--color-text-primary)]">
+                {product.title}
+              </h1>
+              {product.description ? (
+                <p className="text-sm leading-6 text-[var(--color-text-secondary)]">
+                  {product.description}
                 </p>
-                <h1 className="font-display text-4xl font-semibold leading-[0.98] text-[var(--color-text-primary)]">
-                  {product.title}
-                </h1>
-                <p className="max-w-2xl text-sm leading-6 text-[var(--color-text-secondary)]">
-                  {product.description ?? "Camiseta pronta para compra online, com detalhes claros de variante, estoque e valor final."}
-                </p>
-              </div>
-
-              <div className="rounded-[22px] border border-[var(--color-line)] bg-[var(--color-surface-1)]/88 p-5">
-                <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--color-text-muted)]">
-                  Preco da variante selecionada
-                </p>
-                <p className="mt-2 font-display text-4xl font-semibold text-[var(--color-text-primary)]">
-                  {selectedVariant ? formatCents(selectedVariant.price_cents) : "--"}
-                </p>
-                <div
-                  className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
-                    availability.tone === "success"
-                      ? "border-[var(--color-success-text)]/18 bg-[var(--color-success-bg)] text-[var(--color-success-text)]"
-                      : availability.tone === "warning"
-                        ? "border-[var(--color-warning-text)]/18 bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]"
-                        : "border-[var(--color-danger-text)]/20 bg-[var(--color-danger-bg)] text-[var(--color-danger-text)]"
-                  }`}
-                >
-                  <p className="font-semibold">{availability.label}</p>
-                  <p className="mt-1 text-xs leading-5 opacity-90">{availability.description}</p>
-                </div>
-              </div>
+              ) : null}
             </div>
 
-            {hasVariants ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="font-display text-2xl font-semibold text-[var(--color-text-primary)]">
-                    Escolha a variante
-                  </h2>
-                  <span className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
-                    {product.variants.length} opcao(oes)
-                  </span>
-                </div>
-                <div className="space-y-3">
-                  {product.variants.map((variant) => {
-                    const attrEntries = Object.entries(normalizeVariantAttributes(variant));
-                    const isSelected = selectedVariant?.id === variant.id;
-                    const isOutOfStock = variant.stock <= 0;
+            {/* Preço */}
+            <div className="rounded-[22px] border border-[var(--color-line)] bg-[var(--color-surface-1)]/88 px-5 py-4">
+              <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--color-text-muted)]">Preco</p>
+              <p className="mt-1 font-display text-4xl font-semibold text-[var(--color-text-primary)]">
+                {resolvedPrice !== null ? formatCents(resolvedPrice) : "--"}
+              </p>
+            </div>
 
+            {/* Seletor por dimensões agrupadas */}
+            {hasDimensions && product.variants.length > 0 ? (
+              <div className="space-y-5">
+                {dimensions.map((dim) => {
+                  const values = valuesForDimension(product.variants, dim);
+                  const selectedValue = selectedDimensions[dim];
+
+                  return (
+                    <div key={dim} className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold capitalize text-[var(--color-text-primary)]">
+                          {dim}
+                        </p>
+                        {selectedValue ? (
+                          <span className="rounded-full bg-[var(--color-accent-soft)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--color-accent)]">
+                            {selectedValue}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-[var(--color-text-muted)]">— selecione</span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {values.map((val) => {
+                          const partial = { ...selectedDimensions, [dim]: val };
+                          const isSelected = selectedValue === val;
+                          const hasStock = hasAnyStockForPartial(product.variants, partial);
+
+                          return (
+                            <button
+                              key={val}
+                              type="button"
+                              disabled={!hasStock}
+                              onClick={() => handleSelectDimension(dim, val)}
+                              className={`min-w-[44px] rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+                                isSelected
+                                  ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
+                                  : hasStock
+                                    ? "border-[var(--color-line)] bg-[var(--color-surface-2)] text-[var(--color-text-primary)] hover:border-[var(--color-line-strong)]"
+                                    : "cursor-not-allowed border-[var(--color-line)] bg-[var(--color-surface-1)] text-[var(--color-text-muted)] line-through opacity-50"
+                              }`}
+                              aria-pressed={isSelected}
+                              title={!hasStock ? "Sem estoque para esta opção" : undefined}
+                            >
+                              {val}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Resumo da seleção */}
+                <div className="rounded-[22px] border border-[var(--color-line)] bg-[var(--color-surface-1)]/88 px-5 py-4">
+                  {allDimensionsSelected && selectedVariant ? (
+                    <div className="flex flex-col gap-1">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--color-text-muted)]">
+                        Selecionado
+                      </p>
+                      <p className="font-semibold text-[var(--color-text-primary)]">
+                        {dimensions.map((d) => selectedDimensions[d]).join(" · ")}
+                      </p>
+                      {selectedVariant.stock <= 0 ? (
+                        <p className="mt-1 text-xs font-semibold text-[var(--color-danger-text)]">
+                          Sem estoque para esta combinação
+                        </p>
+                      ) : selectedVariant.stock <= 3 ? (
+                        <p className="mt-1 text-xs text-[var(--color-warning-text)]">
+                          Últimas {selectedVariant.stock} unidade(s)
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-xs text-[var(--color-success-text)]">
+                          Disponível para compra
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-[var(--color-text-muted)]">
+                      {dimensions.filter((d) => !(d in selectedDimensions)).length === dimensions.length
+                        ? "Selecione as opções acima para continuar."
+                        : `Selecione também: ${dimensions.filter((d) => !(d in selectedDimensions)).join(", ")}`}
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddToCart}
+                  disabled={!canAddToCart}
+                  className="w-full rounded-xl bg-[var(--color-accent)] py-3.5 text-sm font-semibold text-[#04101f] transition hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  {!allDimensionsSelected
+                    ? "Selecione todas as opções"
+                    : selectedVariant === null
+                      ? "Combinação indisponível"
+                      : selectedVariant.stock <= 0
+                        ? "Sem estoque"
+                        : "Adicionar ao carrinho"}
+                </button>
+              </div>
+            ) : useFallbackCardSelector ? (
+              // Fallback: variantes sem atributos estruturados
+              <div className="space-y-3">
+                <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                  Escolha a variante
+                </p>
+                <div className="space-y-2">
+                  {product.variants.map((v) => {
+                    const isSelected = fallbackSelectedId === v.id;
                     return (
                       <button
-                        key={variant.id}
+                        key={v.id}
                         type="button"
-                        onClick={() => setSelectedVariantId(variant.id)}
-                        className={`w-full rounded-[22px] border p-4 text-left transition ${
+                        onClick={() => setFallbackSelectedId(v.id)}
+                        className={`flex w-full items-center justify-between rounded-[18px] border px-4 py-3 text-left transition ${
                           isSelected
-                            ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] shadow-[0_14px_32px_rgba(0,0,0,0.2)]"
-                            : "border-[var(--color-line)] bg-[var(--color-surface-1)]/88 hover:border-[var(--color-line-strong)] hover:bg-[var(--color-surface-2)]"
+                            ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)]"
+                            : "border-[var(--color-line)] bg-[var(--color-surface-1)]/88 hover:border-[var(--color-line-strong)]"
                         }`}
-                        aria-pressed={isSelected}
                       >
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="space-y-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="font-semibold text-[var(--color-text-primary)]">{variant.sku}</p>
-                              {isSelected ? (
-                                <span className="rounded-full border border-[var(--color-accent)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-accent)]">
-                                  Selecionada
-                                </span>
-                              ) : null}
-                              {isOutOfStock ? (
-                                <span className="rounded-full border border-[var(--color-danger-text)]/25 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-danger-text)]">
-                                  Sem estoque
-                                </span>
-                              ) : null}
-                            </div>
-                            <p className="text-sm text-[var(--color-text-secondary)]">
-                              {variant.stock > 0 ? `${variant.stock} unidade(s) disponiveis` : "Indisponivel agora"}
-                            </p>
-                            {attrEntries.length > 0 ? (
-                              <div className="flex flex-wrap gap-2">
-                                {attrEntries.map(([key, value]) => (
-                                  <span
-                                    key={`${variant.id}-${key}`}
-                                    className="rounded-full border border-[var(--color-line)] px-2.5 py-1 text-[11px] text-[var(--color-text-secondary)]"
-                                  >
-                                    {key}: {value}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="text-xs text-[var(--color-text-muted)]">Sem atributos adicionais.</p>
-                            )}
-                          </div>
-                          <div className="text-left sm:text-right">
-                            <p className="font-display text-2xl font-semibold text-[var(--color-text-primary)]">
-                              {formatCents(variant.price_cents)}
-                            </p>
-                            <p className="mt-1 text-xs uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
-                              Clique para escolher
-                            </p>
-                          </div>
-                        </div>
+                        <span className="font-semibold text-[var(--color-text-primary)]">{v.sku}</span>
+                        <span className="text-sm text-[var(--color-text-secondary)]">
+                          {v.stock > 0 ? formatCents(v.price_cents) : "Sem estoque"}
+                        </span>
                       </button>
                     );
                   })}
                 </div>
+                <button
+                  type="button"
+                  onClick={handleAddFallback}
+                  disabled={!fallbackVariant || fallbackVariant.stock <= 0}
+                  className="w-full rounded-xl bg-[var(--color-accent)] py-3.5 text-sm font-semibold text-[#04101f] transition hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  {!fallbackVariant || fallbackVariant.stock <= 0 ? "Sem estoque" : "Adicionar ao carrinho"}
+                </button>
               </div>
             ) : (
               <EmptyState
@@ -329,53 +420,6 @@ export default function ProductDetailPage() {
                 message="Este produto ainda nao possui uma opcao pronta para ser adicionada ao carrinho."
               />
             )}
-
-            <div className="rounded-[22px] border border-[var(--color-line)] bg-[var(--color-surface-1)]/88 p-5">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--color-text-muted)]">
-                    Opcao que vai para o carrinho
-                  </p>
-                  {selectedVariant ? (
-                    <>
-                      <p className="mt-2 text-lg font-semibold text-[var(--color-text-primary)]">
-                        {selectedVariant.sku}
-                      </p>
-                      <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                        {Object.keys(selectedVariantAttributes).length > 0
-                          ? Object.entries(selectedVariantAttributes)
-                              .map(([key, value]) => `${key}: ${value}`)
-                              .join(" · ")
-                          : "Sem atributos adicionais para esta variante."}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-                      Nenhuma variante selecionada.
-                    </p>
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (selectedVariant) {
-                      handleAddVariant(selectedVariant);
-                    }
-                  }}
-                  disabled={!canAddSelectedVariant}
-                  className="inline-flex items-center justify-center rounded-xl bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-[#04101f] transition hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-45"
-                >
-                  {!hasVariants
-                    ? "Sem variantes"
-                    : selectedVariant === null
-                      ? "Selecione uma variante"
-                      : selectedVariant.stock <= 0
-                        ? "Sem estoque"
-                        : "Adicionar ao carrinho"}
-                </button>
-              </div>
-            </div>
           </div>
         </section>
       ) : null}

@@ -127,6 +127,8 @@ export default function CartPage() {
   const router = useRouter();
   const {
     items,
+    deliveryMethod,
+    setDeliveryMethod,
     removeItem,
     updateQuantity,
     totalCents,
@@ -146,7 +148,8 @@ export default function CartPage() {
   const canCalculateShipping = items.length > 0 && isPostalCodeValid && !isQuotingShipping;
   const shippingCents = selectedShipping?.priceCents ?? 0;
   const totalWithShippingCents = totalCents + shippingCents;
-  const canContinue = items.length > 0 && selectedShipping !== null;
+  const isPickup = deliveryMethod === "pickup";
+  const canContinue = items.length > 0 && (isPickup || selectedShipping !== null);
 
   const itemsSignature = useMemo(
     () =>
@@ -454,6 +457,44 @@ export default function CartPage() {
               </div>
             </PurchaseSectionCard>
 
+            {/* Toggle de método de entrega */}
+            <PurchaseSectionCard
+              eyebrow="Entrega"
+              title="Como vai receber o pedido?"
+              description="Escolha entre envio pelos Correios/transportadora ou retirada no local."
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDeliveryMethod("shipping")}
+                  className={`flex flex-col items-center gap-2 rounded-[22px] border p-4 text-center transition ${
+                    !isPickup
+                      ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)]"
+                      : "border-[var(--color-line)] bg-[var(--color-surface-1)]/88 hover:border-[var(--color-line-strong)]"
+                  }`}
+                >
+                  <span className="text-2xl">📦</span>
+                  <span className="text-sm font-semibold text-[var(--color-text-primary)]">Envio</span>
+                  <span className="text-xs text-[var(--color-text-muted)]">Correios ou transportadora</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeliveryMethod("pickup")}
+                  className={`flex flex-col items-center gap-2 rounded-[22px] border p-4 text-center transition ${
+                    isPickup
+                      ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)]"
+                      : "border-[var(--color-line)] bg-[var(--color-surface-1)]/88 hover:border-[var(--color-line-strong)]"
+                  }`}
+                >
+                  <span className="text-2xl">🏪</span>
+                  <span className="text-sm font-semibold text-[var(--color-text-primary)]">Retirada</span>
+                  <span className="text-xs text-[var(--color-text-muted)]">Buscar no local combinado</span>
+                </button>
+              </div>
+            </PurchaseSectionCard>
+
+            {/* Seção de frete — só aparece para envio */}
+            {!isPickup ? (
             <PurchaseSectionCard
               eyebrow="Frete"
               title="Calcule e escolha a entrega"
@@ -556,6 +597,7 @@ export default function CartPage() {
                 ) : null}
               </div>
             </PurchaseSectionCard>
+            ) : null}
           </div>
 
           <div className="space-y-4 lg:sticky lg:top-24">
@@ -570,7 +612,7 @@ export default function CartPage() {
                     <SummaryRow label="Subtotal" value={formatCents(totalCents)} />
                     <SummaryRow
                       label="Frete"
-                      value={selectedShipping ? formatCents(shippingCents) : "A definir"}
+                      value={isPickup ? "Retirada (grátis)" : selectedShipping ? formatCents(shippingCents) : "A definir"}
                     />
                     <div className="border-t border-[var(--color-line)] pt-3">
                       <SummaryRow label="Total" value={formatCents(totalWithShippingCents)} strong />
@@ -582,26 +624,40 @@ export default function CartPage() {
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
                     Entrega
                   </p>
-                  <p className="mt-2 font-semibold text-[var(--color-text-primary)]">
-                    {selectedShipping ? selectedShipping.serviceName : "Frete ainda nao selecionado"}
-                  </p>
-                  <p className="mt-1 leading-6">
-                    CEP: {formatPostalCode(destinationPostalCode)}
-                    {selectedShipping ? ` · ${selectedShipping.deliveryDays} dia(s)` : ""}
-                  </p>
+                  {isPickup ? (
+                    <p className="mt-2 font-semibold text-[var(--color-text-primary)]">Retirada no local</p>
+                  ) : (
+                    <>
+                      <p className="mt-2 font-semibold text-[var(--color-text-primary)]">
+                        {selectedShipping ? selectedShipping.serviceName : "Frete ainda nao selecionado"}
+                      </p>
+                      <p className="mt-1 leading-6">
+                        CEP: {formatPostalCode(destinationPostalCode)}
+                        {selectedShipping ? ` · ${selectedShipping.deliveryDays} dia(s)` : ""}
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 {!canContinue ? (
                   <StatusCallout
                     tone="warning"
-                    title="Ainda falta escolher o frete"
-                    message="O checkout so sera liberado depois que uma opcao de frete for selecionada para o pedido."
+                    title={isPickup ? "Carrinho vazio" : "Ainda falta escolher o frete"}
+                    message={
+                      isPickup
+                        ? "Adicione itens ao carrinho para continuar."
+                        : "O checkout so sera liberado depois que uma opcao de frete for selecionada para o pedido."
+                    }
                   />
                 ) : (
                   <StatusCallout
                     tone="success"
                     title="Pronto para o checkout"
-                    message="Itens e frete ja estao definidos. Voce pode seguir para os dados do cliente e pagamento."
+                    message={
+                      isPickup
+                        ? "Retirada selecionada. Voce pode seguir para os dados do cliente e pagamento."
+                        : "Itens e frete ja estao definidos. Voce pode seguir para os dados do cliente e pagamento."
+                    }
                   />
                 )}
 

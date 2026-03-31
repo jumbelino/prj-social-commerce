@@ -23,14 +23,18 @@ export type SelectedShippingOption = {
   quoteRaw?: object;
 };
 
+export type DeliveryMethod = "shipping" | "pickup";
+
 type CartState = {
   items: CartItem[];
+  deliveryMethod: DeliveryMethod;
   destinationPostalCode: string | null;
   selectedShipping: SelectedShippingOption | null;
 };
 
 type CartContextValue = {
   items: CartItem[];
+  deliveryMethod: DeliveryMethod;
   destinationPostalCode: string | null;
   selectedShipping: SelectedShippingOption | null;
   itemCount: number;
@@ -39,6 +43,7 @@ type CartContextValue = {
   removeItem: (variantId: string) => void;
   updateQuantity: (variantId: string, quantity: number) => void;
   clearCart: () => void;
+  setDeliveryMethod: (method: DeliveryMethod) => void;
   setDestinationPostalCode: (value: string | null) => void;
   setSelectedShipping: (option: SelectedShippingOption | null) => void;
 };
@@ -48,6 +53,7 @@ const CartContext = createContext<CartContextValue | undefined>(undefined);
 function emptyCartState(): CartState {
   return {
     items: [],
+    deliveryMethod: "shipping",
     destinationPostalCode: null,
     selectedShipping: null,
   };
@@ -132,6 +138,7 @@ function parseStoredCart(raw: string | null): CartState {
     if (Array.isArray(parsed)) {
       return {
         items: parseCartItems(parsed),
+        deliveryMethod: "shipping",
         destinationPostalCode: null,
         selectedShipping: null,
       };
@@ -143,12 +150,17 @@ function parseStoredCart(raw: string | null): CartState {
 
     const payload = parsed as {
       items?: unknown;
+      deliveryMethod?: unknown;
       destinationPostalCode?: unknown;
       selectedShipping?: unknown;
     };
 
+    const deliveryMethod: DeliveryMethod =
+      payload.deliveryMethod === "pickup" ? "pickup" : "shipping";
+
     return {
       items: parseCartItems(payload.items),
+      deliveryMethod,
       destinationPostalCode:
         typeof payload.destinationPostalCode === "string" ? payload.destinationPostalCode : null,
       selectedShipping: parseSelectedShipping(payload.selectedShipping),
@@ -180,7 +192,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
-  const { items, destinationPostalCode, selectedShipping } = state;
+  const { items, deliveryMethod, destinationPostalCode, selectedShipping } = state;
 
   const addItem = useCallback((item: Omit<CartItem, "quantity">, quantity = 1) => {
     if (quantity <= 0) {
@@ -244,6 +256,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setState(emptyCartState());
   }, []);
 
+  const setDeliveryMethod = useCallback((method: DeliveryMethod) => {
+    setState((current) => ({
+      ...current,
+      deliveryMethod: method,
+      // ao trocar para retirada, limpa frete selecionado
+      selectedShipping: method === "pickup" ? null : current.selectedShipping,
+    }));
+  }, []);
+
   const setDestinationPostalCode = useCallback((value: string | null) => {
     setState((current) => ({
       ...current,
@@ -264,6 +285,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
     return {
       items,
+      deliveryMethod,
       destinationPostalCode,
       selectedShipping,
       itemCount,
@@ -272,16 +294,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       removeItem,
       updateQuantity,
       clearCart,
+      setDeliveryMethod,
       setDestinationPostalCode,
       setSelectedShipping,
     };
   }, [
     addItem,
     clearCart,
+    deliveryMethod,
     destinationPostalCode,
     items,
     removeItem,
     selectedShipping,
+    setDeliveryMethod,
     setDestinationPostalCode,
     setSelectedShipping,
     updateQuantity,

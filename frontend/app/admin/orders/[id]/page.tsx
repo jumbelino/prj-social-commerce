@@ -415,6 +415,30 @@ export default function OrderDetailPage() {
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Custo do Frete</p>
                   <p className="text-sm text-slate-900 mt-1">{formatCents(order.shipping_cents)}</p>
                 </div>
+                {/* Endereço completo de entrega */}
+                {(order.shipping_address_street || order.shipping_address_city) ? (
+                  <div className="col-span-2 rounded-lg border border-[var(--color-line)] bg-blue-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)] mb-2">Endereço de Entrega</p>
+                    <p className="text-sm font-medium text-slate-900">
+                      {order.shipping_address_street || "-"}
+                      {order.shipping_address_number ? `, ${order.shipping_address_number}` : ""}
+                      {order.shipping_address_complement ? ` — ${order.shipping_address_complement}` : ""}
+                    </p>
+                    <p className="text-sm text-slate-700 mt-1">
+                      {[order.shipping_address_neighborhood, order.shipping_address_city, order.shipping_address_state]
+                        .filter(Boolean)
+                        .join(", ")}
+                    </p>
+                    <p className="text-xs text-[var(--color-muted)] mt-1">
+                      CEP {order.shipping_to_postal_code || "-"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="col-span-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Endereço de Entrega</p>
+                    <p className="text-sm text-[var(--color-muted)] mt-1 italic">Não informado (pedido anterior ao campo de endereço)</p>
+                  </div>
+                )}
               </div>
             )}
           </section>
