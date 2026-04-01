@@ -11,6 +11,8 @@
   --color-accent-ink: #ffffff;
   --color-danger-bg: #fff1ef;
   --color-danger-text: #8d2417;
+  --color-input-bg: #ffffff;
+  --color-label: #334155;
 }
 
 @theme inline {
@@ -35,6 +37,7 @@ body {
 .storefront-theme {
   --color-bg: #07111f;
   --color-bg-soft: #0d1729;
+  --color-accent-ink: #07111f;
   --color-card: #101a2f;
   --color-surface-1: #0d1729;
   --color-surface-2: #101a2f;
@@ -55,6 +58,8 @@ body {
   --color-warning-text: #ffd27d;
   --color-danger-bg: rgba(255, 116, 143, 0.14);
   --color-danger-text: #ff9ab0;
+  --color-input-bg: #0d1729;
+  --color-label: #b8c7de;
   background:
     radial-gradient(circle at top left, rgba(104, 179, 255, 0.15), transparent 28%),
     radial-gradient(circle at 88% 4%, rgba(121, 151, 255, 0.12), transparent 24%),

@@ -511,13 +511,13 @@ export function AssistedSaleClient() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Admin</p>
-            <h1 className="mt-3 font-display text-4xl leading-tight text-slate-900">Venda Assistida</h1>
+            <h1 className="mt-3 font-display text-4xl leading-tight text-[var(--color-text)]">Venda Assistida</h1>
             <p className="mt-2 max-w-3xl text-base text-[var(--color-muted)]">
               Monte um pedido manualmente, escolha o cliente e confirme a forma de entrega antes de criar o pedido.
             </p>
           </div>
-          <div className="rounded-2xl border border-[var(--color-line)] bg-slate-50 px-4 py-3 text-sm text-[var(--color-muted)]">
-            <p className="font-medium text-slate-900">Estado atual</p>
+          <div className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface-1)] px-4 py-3 text-sm text-[var(--color-muted)]">
+            <p className="font-medium text-[var(--color-text)]">Estado atual</p>
             <p className="mt-1">
               {createdOrder ? "Pedido criado com sucesso." : "Montando pedido assistido."}
             </p>
@@ -542,10 +542,10 @@ export function AssistedSaleClient() {
                   value={customerSearch}
                   onChange={(event) => setCustomerSearch(event.target.value)}
                   aria-label="Buscar cliente existente"
-                  className="mt-2 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm"
+                  className="mt-2 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] px-3 py-2 text-sm"
                 />
               </div>
-              <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-[var(--color-muted)]">
+              <div className="rounded-lg bg-[var(--color-surface-1)] px-3 py-2 text-xs text-[var(--color-muted)]">
                 {isLoadingCustomers ? "Buscando clientes..." : "Preencha manualmente se nao encontrar o cliente."}
               </div>
             </div>
@@ -557,10 +557,10 @@ export function AssistedSaleClient() {
                     key={customer.id}
                     type="button"
                     onClick={() => selectCustomer(customer)}
-                    className="flex w-full items-center justify-between rounded-xl border border-[var(--color-line)] bg-slate-50 px-4 py-3 text-left transition hover:border-slate-400"
+                    className="flex w-full items-center justify-between rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)] px-4 py-3 text-left transition hover:border-[var(--color-line-strong)]"
                   >
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">{customer.name || "Cliente sem nome"}</p>
+                      <p className="text-sm font-semibold text-[var(--color-text)]">{customer.name || "Cliente sem nome"}</p>
                       <p className="text-xs text-[var(--color-muted)]">
                         {customer.email || customer.phone || "Sem contato"}
                       </p>
@@ -581,7 +581,7 @@ export function AssistedSaleClient() {
                   value={customerName}
                   onChange={(event) => updateCustomerField("name", event.target.value)}
                   aria-label="Nome do cliente"
-                  className="mt-2 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm"
+                  className="mt-2 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] px-3 py-2 text-sm"
                 />
               </div>
               <div>
@@ -593,7 +593,7 @@ export function AssistedSaleClient() {
                   value={customerEmail}
                   onChange={(event) => updateCustomerField("email", event.target.value)}
                   aria-label="Email do cliente"
-                  className="mt-2 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm"
+                  className="mt-2 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] px-3 py-2 text-sm"
                 />
               </div>
               <div>
@@ -605,14 +605,14 @@ export function AssistedSaleClient() {
                   value={customerPhone}
                   onChange={(event) => updateCustomerField("phone", event.target.value)}
                   aria-label="Telefone do cliente"
-                  className="mt-2 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm"
+                  className="mt-2 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] px-3 py-2 text-sm"
                 />
               </div>
             </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-[var(--color-muted)]">
-              <span className="rounded-full bg-slate-100 px-3 py-1">Nome obrigatorio</span>
-              <span className="rounded-full bg-slate-100 px-3 py-1">Email ou telefone obrigatorio</span>
+              <span className="rounded-full bg-[var(--color-surface-2)] px-3 py-1">Nome obrigatorio</span>
+              <span className="rounded-full bg-[var(--color-surface-2)] px-3 py-1">Email ou telefone obrigatorio</span>
               {selectedCustomerId !== null && (
                 <span className="rounded-full bg-[var(--color-accent)]/10 px-3 py-1 text-[var(--color-accent)]">
                   Cliente existente selecionado
@@ -633,22 +633,22 @@ export function AssistedSaleClient() {
                   value={productSearch}
                   onChange={(event) => setProductSearch(event.target.value)}
                   aria-label="Buscar produto"
-                  className="mt-2 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm"
+                  className="mt-2 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] px-3 py-2 text-sm"
                 />
               </div>
-              <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-[var(--color-muted)]">
+              <div className="rounded-lg bg-[var(--color-surface-1)] px-3 py-2 text-xs text-[var(--color-muted)]">
                 {isLoadingProducts ? "Carregando produtos..." : `${products.length} produto(s) carregado(s)`}
               </div>
             </div>
 
             <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.95fr)]">
-              <div className="space-y-2 rounded-2xl border border-[var(--color-line)] bg-slate-50 p-3">
+              <div className="space-y-2 rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface-1)] p-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
                   Resultados
                 </p>
                 <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
                   {products.length === 0 && !isLoadingProducts ? (
-                    <p className="rounded-xl border border-dashed border-[var(--color-line)] bg-white px-4 py-6 text-sm text-[var(--color-muted)]">
+                    <p className="rounded-xl border border-dashed border-[var(--color-line)] bg-[var(--color-surface-1)] px-4 py-6 text-sm text-[var(--color-muted)]">
                       Nenhum produto ativo encontrado.
                     </p>
                   ) : (
@@ -663,12 +663,12 @@ export function AssistedSaleClient() {
                           className={`w-full rounded-xl border px-4 py-3 text-left transition ${
                             isSelected
                               ? "border-[var(--color-accent)] bg-[var(--color-accent)]/5"
-                              : "border-[var(--color-line)] bg-white hover:border-slate-400"
+                              : "border-[var(--color-line)] bg-[var(--color-surface-1)] hover:border-[var(--color-line-strong)]"
                           }`}
                         >
                           <div className="flex items-center justify-between gap-3">
                             <div>
-                              <p className="text-sm font-semibold text-slate-900">{product.title}</p>
+                              <p className="text-sm font-semibold text-[var(--color-text)]">{product.title}</p>
                               <p className="mt-1 text-xs text-[var(--color-muted)]">
                                 {product.variants.length} variacao(oes)
                               </p>
@@ -676,7 +676,7 @@ export function AssistedSaleClient() {
                             <span
                               className={`rounded-full px-2 py-1 text-[11px] font-semibold ${
                                 hasStock
-                                  ? "bg-emerald-100 text-emerald-700"
+                                  ? "bg-emerald-500/20 text-emerald-300"
                                   : "bg-rose-100 text-rose-700"
                               }`}
                             >
@@ -690,7 +690,7 @@ export function AssistedSaleClient() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-[var(--color-line)] bg-white p-4">
+              <div className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
                   Adicionar item
                 </p>
@@ -702,7 +702,7 @@ export function AssistedSaleClient() {
                 ) : (
                   <div className="mt-4 space-y-4">
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">{selectedProduct.title}</p>
+                      <p className="text-sm font-semibold text-[var(--color-text)]">{selectedProduct.title}</p>
                       {selectedProduct.description ? (
                         <p className="mt-1 text-sm text-[var(--color-muted)]">{selectedProduct.description}</p>
                       ) : null}
@@ -716,7 +716,7 @@ export function AssistedSaleClient() {
                         value={selectedVariantId}
                         onChange={(event) => setSelectedVariantId(event.target.value)}
                         aria-label="Selecionar variacao"
-                        className="mt-2 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm"
+                        className="mt-2 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] px-3 py-2 text-sm"
                       >
                         {selectedProduct.variants.map((variant) => (
                           <option key={variant.id} value={variant.id}>
@@ -737,25 +737,25 @@ export function AssistedSaleClient() {
                           value={draftQuantity}
                           onChange={(event) => setDraftQuantity(Math.max(1, Number(event.target.value) || 1))}
                           aria-label="Quantidade para adicionar"
-                          className="mt-2 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm"
+                          className="mt-2 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] px-3 py-2 text-sm"
                         />
                       </div>
-                      <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm">
+                      <div className="rounded-lg bg-[var(--color-surface-1)] px-4 py-3 text-sm">
                         <p className="text-[var(--color-muted)]">Estoque disponivel</p>
-                        <p className="mt-1 font-semibold text-slate-900">{selectedVariant?.stock ?? 0}</p>
+                        <p className="mt-1 font-semibold text-[var(--color-text)]">{selectedVariant?.stock ?? 0}</p>
                       </div>
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm">
+                      <div className="rounded-lg bg-[var(--color-surface-1)] px-4 py-3 text-sm">
                         <p className="text-[var(--color-muted)]">Preco unitario</p>
-                        <p className="mt-1 font-semibold text-slate-900">
+                        <p className="mt-1 font-semibold text-[var(--color-text)]">
                           {selectedVariant ? formatCents(selectedVariant.price_cents) : "-"}
                         </p>
                       </div>
-                      <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm">
+                      <div className="rounded-lg bg-[var(--color-surface-1)] px-4 py-3 text-sm">
                         <p className="text-[var(--color-muted)]">Subtotal do item</p>
-                        <p className="mt-1 font-semibold text-slate-900">
+                        <p className="mt-1 font-semibold text-[var(--color-text)]">
                           {selectedVariant ? formatCents(selectedVariant.price_cents * draftQuantity) : "-"}
                         </p>
                       </div>
@@ -785,7 +785,7 @@ export function AssistedSaleClient() {
                   Escolha envio com frete ou retirada sem frete calculado.
                 </p>
               </div>
-              <div className="inline-flex rounded-xl border border-[var(--color-line)] bg-slate-50 p-1">
+              <div className="inline-flex rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)] p-1">
                 <button
                   type="button"
                   onClick={() => handleChangeDeliveryMethod("shipping")}
@@ -820,13 +820,13 @@ export function AssistedSaleClient() {
                     value={cep}
                     onChange={(event) => handleCepChange(event.target.value)}
                     aria-label="CEP para frete"
-                    className="flex-1 rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm"
+                    className="flex-1 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] px-3 py-2 text-sm"
                   />
                   <button
                     type="button"
                     onClick={calculateShipping}
                     disabled={cart.length === 0 || cep.length !== 8 || isCalculatingShipping}
-                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                    className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-accent-ink)] disabled:opacity-50"
                   >
                     {isCalculatingShipping ? "Calculando..." : "Calcular frete"}
                   </button>
@@ -846,7 +846,7 @@ export function AssistedSaleClient() {
                           className={`flex cursor-pointer items-center justify-between rounded-xl border px-4 py-3 transition ${
                             isSelected
                               ? "border-[var(--color-accent)] bg-[var(--color-accent)]/5"
-                              : "border-[var(--color-line)] bg-slate-50"
+                              : "border-[var(--color-line)] bg-[var(--color-surface-1)]"
                           }`}
                         >
                           <div className="flex items-center gap-3">
@@ -857,13 +857,13 @@ export function AssistedSaleClient() {
                               onChange={() => setSelectedShipping(option)}
                             />
                             <div>
-                              <p className="text-sm font-semibold text-slate-900">{option.name}</p>
+                              <p className="text-sm font-semibold text-[var(--color-text)]">{option.name}</p>
                               <p className="text-xs text-[var(--color-muted)]">
                                 {option.delivery_days} dia(s) uteis
                               </p>
                             </div>
                           </div>
-                          <span className="text-sm font-semibold text-slate-900">
+                          <span className="text-sm font-semibold text-[var(--color-text)]">
                             {formatCents(option.price_cents)}
                           </span>
                         </label>
@@ -873,7 +873,7 @@ export function AssistedSaleClient() {
                 ) : null}
               </div>
             ) : (
-              <div className="mt-5 rounded-xl border border-dashed border-[var(--color-line)] bg-slate-50 px-4 py-5 text-sm text-[var(--color-muted)]">
+              <div className="mt-5 rounded-xl border border-dashed border-[var(--color-line)] bg-[var(--color-surface-1)] px-4 py-5 text-sm text-[var(--color-muted)]">
                 Retirada selecionada. O pedido sera criado sem frete calculado.
               </div>
             )}
@@ -891,7 +891,7 @@ export function AssistedSaleClient() {
                   Revise cliente, itens e entrega antes de criar o pedido.
                 </p>
               </div>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-[var(--color-muted)]">
+              <span className="rounded-full bg-[var(--color-surface-2)] px-3 py-1 text-xs font-semibold text-[var(--color-muted)]">
                 {cart.length} item(ns)
               </span>
             </div>
@@ -903,10 +903,10 @@ export function AssistedSaleClient() {
                 </p>
               ) : (
                 cart.map((item) => (
-                  <div key={item.variant.id} className="rounded-xl border border-[var(--color-line)] bg-slate-50 p-4">
+                  <div key={item.variant.id} className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-sm font-semibold text-slate-900">{item.product.title}</p>
+                        <p className="text-sm font-semibold text-[var(--color-text)]">{item.product.title}</p>
                         <p className="mt-1 text-xs text-[var(--color-muted)]">{formatVariantLabel(item.variant)}</p>
                         <p className="mt-1 text-xs text-[var(--color-muted)]">Estoque: {item.variant.stock}</p>
                       </div>
@@ -924,7 +924,7 @@ export function AssistedSaleClient() {
                         <button
                           type="button"
                           onClick={() => updateItemQuantity(item.variant.id, item.quantity - 1)}
-                          className="h-8 w-8 rounded-lg border border-[var(--color-line)] bg-white text-sm font-semibold text-slate-900"
+                          className="h-8 w-8 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] text-sm font-semibold text-[var(--color-text)]"
                         >
                           -
                         </button>
@@ -933,12 +933,12 @@ export function AssistedSaleClient() {
                           min={1}
                           value={item.quantity}
                           onChange={(event) => updateItemQuantity(item.variant.id, Number(event.target.value) || 1)}
-                          className="h-8 w-16 rounded-lg border border-[var(--color-line)] bg-white px-2 text-center text-sm"
+                          className="h-8 w-16 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] px-2 text-center text-sm"
                         />
                         <button
                           type="button"
                           onClick={() => updateItemQuantity(item.variant.id, item.quantity + 1)}
-                          className="h-8 w-8 rounded-lg border border-[var(--color-line)] bg-white text-sm font-semibold text-slate-900"
+                          className="h-8 w-8 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] text-sm font-semibold text-[var(--color-text)]"
                         >
                           +
                         </button>
@@ -947,7 +947,7 @@ export function AssistedSaleClient() {
                         <p className="text-xs text-[var(--color-muted)]">
                           {formatCents(item.variant.price_cents)} cada
                         </p>
-                        <p className="text-sm font-semibold text-slate-900">
+                        <p className="text-sm font-semibold text-[var(--color-text)]">
                           {formatCents(item.variant.price_cents * item.quantity)}
                         </p>
                       </div>
@@ -957,26 +957,26 @@ export function AssistedSaleClient() {
               )}
             </div>
 
-            <div className="mt-5 rounded-xl bg-slate-50 p-4 text-sm">
+            <div className="mt-5 rounded-xl bg-[var(--color-surface-1)] p-4 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-[var(--color-muted)]">Cliente</span>
-                <span className="font-medium text-slate-900">
+                <span className="font-medium text-[var(--color-text)]">
                   {customerName.trim() || "Nao informado"}
                 </span>
               </div>
               <div className="mt-2 flex items-center justify-between">
                 <span className="text-[var(--color-muted)]">Entrega</span>
-                <span className="font-medium text-slate-900">
+                <span className="font-medium text-[var(--color-text)]">
                   {formatDeliveryMethodLabel(deliveryMethod)}
                 </span>
               </div>
               <div className="mt-2 flex items-center justify-between">
                 <span className="text-[var(--color-muted)]">Subtotal</span>
-                <span className="font-medium text-slate-900">{formatCents(subtotalCents)}</span>
+                <span className="font-medium text-[var(--color-text)]">{formatCents(subtotalCents)}</span>
               </div>
               <div className="mt-2 flex items-center justify-between">
                 <span className="text-[var(--color-muted)]">Frete</span>
-                <span className="font-medium text-slate-900">
+                <span className="font-medium text-[var(--color-text)]">
                   {deliveryMethod === "pickup"
                     ? "Nao se aplica"
                     : selectedShipping
@@ -985,24 +985,24 @@ export function AssistedSaleClient() {
                 </span>
               </div>
               <div className="mt-3 border-t border-[var(--color-line)] pt-3">
-                <div className="flex items-center justify-between text-base font-semibold text-slate-900">
+                <div className="flex items-center justify-between text-base font-semibold text-[var(--color-text)]">
                   <span>Total</span>
                   <span>{formatCents(totalCents)}</span>
                 </div>
               </div>
             </div>
 
-            <div className="mt-5 space-y-2 rounded-xl border border-[var(--color-line)] bg-white p-4 text-sm">
-              <p className="font-semibold text-slate-900">Checklist</p>
-              <p className={needsItems ? "text-amber-700" : "text-emerald-700"}>
+            <div className="mt-5 space-y-2 rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4 text-sm">
+              <p className="font-semibold text-[var(--color-text)]">Checklist</p>
+              <p className={needsItems ? "text-amber-400" : "text-emerald-300"}>
                 {needsItems ? "• Adicione itens ao pedido" : "• Itens prontos"}
               </p>
-              <p className={needsCustomerName || needsCustomerContact ? "text-amber-700" : "text-emerald-700"}>
+              <p className={needsCustomerName || needsCustomerContact ? "text-amber-400" : "text-emerald-300"}>
                 {needsCustomerName || needsCustomerContact
                   ? "• Complete os dados do cliente"
                   : "• Cliente pronto"}
               </p>
-              <p className={needsShippingSelection ? "text-amber-700" : "text-emerald-700"}>
+              <p className={needsShippingSelection ? "text-amber-400" : "text-emerald-300"}>
                 {deliveryMethod === "pickup"
                   ? "• Retirada nao exige frete"
                   : needsShippingSelection
@@ -1022,14 +1022,14 @@ export function AssistedSaleClient() {
           </section>
 
           {createdOrder ? (
-            <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+            <section className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">
                 Pedido criado
               </p>
-              <h2 className="mt-2 text-lg font-semibold text-slate-900">
+              <h2 className="mt-2 text-lg font-semibold text-[var(--color-text)]">
                 Pedido {createdOrder.id.slice(0, 8)} criado com sucesso
               </h2>
-              <div className="mt-4 space-y-2 text-sm text-slate-700">
+              <div className="mt-4 space-y-2 text-sm text-[var(--color-text-secondary)]">
                 <p><span className="font-medium">Origem:</span> Venda assistida</p>
                 <p><span className="font-medium">Entrega:</span> {formatDeliveryMethodLabel(createdOrder.delivery_method)}</p>
                 <p><span className="font-medium">Status:</span> {createdOrder.status}</p>
@@ -1040,21 +1040,21 @@ export function AssistedSaleClient() {
                 </p>
               </div>
 
-              <div className="mt-5 rounded-xl border border-emerald-200 bg-white p-4">
+              <div className="mt-5 rounded-xl border border-emerald-200 bg-[var(--color-surface-1)] p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">Pagamento</p>
-                    <p className="mt-1 text-xs text-slate-600">
+                    <p className="text-sm font-semibold text-[var(--color-text)]">Pagamento</p>
+                    <p className="mt-1 text-xs text-[var(--color-muted)]">
                       Gere manualmente um link de checkout para enviar ao cliente.
                     </p>
                   </div>
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                  <span className="rounded-full bg-[var(--color-surface-2)] px-3 py-1 text-xs font-semibold text-[var(--color-text-secondary)]">
                     {paymentPreference ? "Link gerado" : isGeneratingPaymentLink ? "Gerando link" : "Pedido criado"}
                   </span>
                 </div>
 
                 {paymentLinkMessage ? (
-                  <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                  <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-300">
                     {paymentLinkMessage}
                   </p>
                 ) : null}
@@ -1067,17 +1067,17 @@ export function AssistedSaleClient() {
 
                 {paymentPreference ? (
                   <div className="mt-4 space-y-3">
-                    <div className="rounded-lg border border-[var(--color-line)] bg-slate-50 px-3 py-3">
+                    <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] px-3 py-3">
                       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
                         Link de pagamento
                       </p>
-                      <p className="mt-2 break-all text-sm text-slate-800">{paymentPreference.checkout_url}</p>
+                      <p className="mt-2 break-all text-sm text-[var(--color-text)]">{paymentPreference.checkout_url}</p>
                     </div>
                     <div className="flex flex-wrap gap-3">
                       <button
                         type="button"
                         onClick={handleCopyPaymentLink}
-                        className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+                        className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-accent-ink)]"
                       >
                         Copiar link
                       </button>
@@ -1085,13 +1085,13 @@ export function AssistedSaleClient() {
                         href={paymentPreference.checkout_url}
                         target="_blank"
                         rel="noreferrer"
-                        className="rounded-lg border border-[var(--color-line)] bg-white px-4 py-2 text-sm font-semibold text-slate-900"
+                        className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] px-4 py-2 text-sm font-semibold text-[var(--color-text)]"
                       >
                         Abrir checkout
                       </a>
                       <Link
                         href={`/admin/orders/${createdOrder.id}`}
-                        className="rounded-lg border border-[var(--color-line)] bg-white px-4 py-2 text-sm font-semibold text-slate-900"
+                        className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] px-4 py-2 text-sm font-semibold text-[var(--color-text)]"
                       >
                         Ver pedido
                       </Link>
@@ -1103,13 +1103,13 @@ export function AssistedSaleClient() {
                       type="button"
                       onClick={handleGeneratePaymentLink}
                       disabled={isGeneratingPaymentLink}
-                      className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                      className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-accent-ink)] disabled:opacity-50"
                     >
                       {isGeneratingPaymentLink ? "Gerando link..." : "Gerar link de pagamento"}
                     </button>
                     <Link
                       href={`/admin/orders/${createdOrder.id}`}
-                      className="rounded-lg border border-[var(--color-line)] bg-white px-4 py-2 text-sm font-semibold text-slate-900"
+                      className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] px-4 py-2 text-sm font-semibold text-[var(--color-text)]"
                     >
                       Ver pedido
                     </Link>
@@ -1121,12 +1121,12 @@ export function AssistedSaleClient() {
                 <button
                   type="button"
                   onClick={resetFlowForNewOrder}
-                  className="rounded-lg border border-[var(--color-line)] bg-white px-4 py-2 text-sm font-semibold text-slate-900"
+                  className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] px-4 py-2 text-sm font-semibold text-[var(--color-text)]"
                 >
                   Novo pedido
                 </button>
               </div>
-              <p className="mt-4 text-xs text-slate-600">
+              <p className="mt-4 text-xs text-[var(--color-muted)]">
                 Depois de gerar o link, acompanhe a evolucao do pedido na listagem normal em Pedidos.
               </p>
             </section>

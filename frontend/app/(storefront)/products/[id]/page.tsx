@@ -196,6 +196,18 @@ export default function ProductDetailPage() {
   const resolvedVariant = hasDimensions ? selectedVariant : fallbackVariant;
   const resolvedPrice = resolvedVariant?.price_cents ?? null;
 
+  // preço a exibir: variante selecionada > menor preço das variantes com estoque > menor preço geral
+  const displayPrice = useMemo(() => {
+    if (resolvedPrice !== null) return { price: resolvedPrice, prefix: "" };
+    if (!product) return null;
+    const withStock = product.variants.filter((v) => v.stock > 0);
+    const pool = withStock.length > 0 ? withStock : product.variants;
+    if (pool.length === 0) return null;
+    const min = Math.min(...pool.map((v) => v.price_cents));
+    const max = Math.max(...pool.map((v) => v.price_cents));
+    return { price: min, prefix: min < max ? "A partir de " : "" };
+  }, [resolvedPrice, product]);
+
   return (
     <div className="space-y-6">
       {toast ? (
@@ -273,7 +285,16 @@ export default function ProductDetailPage() {
             <div className="rounded-[22px] border border-[var(--color-line)] bg-[var(--color-surface-1)]/88 px-5 py-4">
               <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--color-text-muted)]">Preco</p>
               <p className="mt-1 font-display text-4xl font-semibold text-[var(--color-text-primary)]">
-                {resolvedPrice !== null ? formatCents(resolvedPrice) : "--"}
+                {displayPrice ? (
+                  <>
+                    {displayPrice.prefix ? (
+                      <span className="text-lg font-normal text-[var(--color-text-secondary)]">
+                        {displayPrice.prefix}
+                      </span>
+                    ) : null}
+                    {formatCents(displayPrice.price)}
+                  </>
+                ) : "--"}
               </p>
             </div>
 

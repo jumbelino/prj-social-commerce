@@ -1,12 +1,103 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ProductCard } from "@/components/storefront/ProductCard";
 import { PublicHero, PublicPanel, PublicSection } from "@/components/storefront/PublicShell";
 import { EmptyState, ErrorState, LoadingState } from "@/components/storefront/StateBlocks";
 import { ApiRequestError, listProducts, type Product } from "@/lib/api";
+import { formatCents } from "@/lib/currency";
+
+function HeroCarousel({ products }: { products: Product[] }) {
+  const [index, setIndex] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const slides = useMemo(
+    () =>
+      products
+        .filter((p) => p.images && p.images.length > 0)
+        .slice(0, 6)
+        .map((p) => ({
+          src: p.images[0].url,
+          title: p.title,
+          price: p.variants[0]?.price_cents,
+        })),
+    [products],
+  );
+
+  useEffect(() => {
+    if (slides.length <= 1) return;
+    timerRef.current = setInterval(() => {
+      setIndex((prev) => (prev + 1) % slides.length);
+    }, 4000);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [slides.length]);
+
+  if (slides.length === 0) {
+    return (
+      <PublicPanel>
+        <div className="flex h-40 items-center justify-center text-sm text-[var(--color-text-muted)]">
+          Nenhuma imagem disponível
+        </div>
+      </PublicPanel>
+    );
+  }
+
+  return (
+    <PublicPanel>
+      <div className="relative overflow-hidden rounded-[18px]">
+        <div className="aspect-[4/3] w-full overflow-hidden rounded-[18px] bg-[var(--color-surface-3)]">
+          {slides.map((slide, i) => (
+            <img
+              key={i}
+              src={slide.src}
+              alt={slide.title}
+              className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${
+                i === index ? "opacity-100" : "opacity-0"
+              }`}
+            />
+          ))}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+          <div className="absolute bottom-0 left-0 right-0 p-4">
+            <p className="text-sm font-semibold text-white leading-tight">
+              {slides[index].title}
+            </p>
+            {slides[index].price !== undefined && (
+              <p className="mt-0.5 text-xs text-white/80">
+                {formatCents(slides[index].price!)}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {slides.length > 1 && (
+          <div className="mt-3 flex justify-center gap-1.5">
+            {slides.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  setIndex(i);
+                  if (timerRef.current) clearInterval(timerRef.current);
+                  timerRef.current = setInterval(() => {
+                    setIndex((prev) => (prev + 1) % slides.length);
+                  }, 4000);
+                }}
+                className={`h-1.5 rounded-full transition-all ${
+                  i === index
+                    ? "w-5 bg-[var(--color-accent)]"
+                    : "w-1.5 bg-[var(--color-line-strong)]"
+                }`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </PublicPanel>
+  );
+}
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -58,39 +149,10 @@ export default function Home() {
         eyebrow="Aurea Shirts"
         title="Camisetas com vitrine simples, compra clara e visual de loja real."
         description="Uma storefront mais limpa, escura e objetiva para destacar produto, preco e decisao de compra sem cara de MVP tecnico."
-        actions={
-          <>
-            <Link
-              href="#catalogo"
-              className="inline-flex items-center justify-center rounded-xl bg-[var(--color-accent)] px-4 py-2.5 text-sm font-semibold text-[#04101f] transition hover:bg-[var(--color-accent-hover)]"
-            >
-              Explorar catalogo
-            </Link>
-            <Link
-              href="/cart"
-              className="inline-flex items-center justify-center rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] px-4 py-2.5 text-sm font-semibold text-[var(--color-text-primary)] transition hover:border-[var(--color-line-strong)] hover:bg-[var(--color-surface-3)]"
-            >
-              Ver carrinho
-            </Link>
-          </>
-        }
       >
-        <PublicPanel>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-[18px] border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4">
-              <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--color-text-muted)]">Direcao</p>
-              <p className="mt-2 text-sm font-medium text-[var(--color-text-primary)]">Dark-first, tecnica e limpa</p>
-            </div>
-            <div className="rounded-[18px] border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4">
-              <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--color-text-muted)]">Compra</p>
-              <p className="mt-2 text-sm font-medium text-[var(--color-text-primary)]">Catalogo, frete e checkout diretos</p>
-            </div>
-            <div className="rounded-[18px] border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4">
-              <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--color-text-muted)]">Foco</p>
-              <p className="mt-2 text-sm font-medium text-[var(--color-text-primary)]">Imagem, preco e confianca</p>
-            </div>
-          </div>
-        </PublicPanel>
+        {!isLoading && visibleProducts.length > 0 ? (
+          <HeroCarousel products={visibleProducts} />
+        ) : null}
       </PublicHero>
 
       <PublicSection

@@ -19,7 +19,7 @@ export function AdminLayoutClient({ children, userName }: AdminLayoutClientProps
     <>
       <SessionExpiredHandler />
       <InactivityHandler />
-      <div className="flex min-h-screen">
+      <div className="storefront-theme flex min-h-screen">
       <AdminSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex flex-1 flex-col lg:pl-64">
         <AdminHeader userName={userName} onMenuClick={() => setSidebarOpen(true)} />

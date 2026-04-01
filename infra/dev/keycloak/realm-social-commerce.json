@@ -2,6 +2,11 @@
   "realm": "social-commerce",
   "enabled": true,
   "displayName": "Social Commerce Dev",
+  "accessTokenLifespan": 28800,
+  "ssoSessionIdleTimeout": 28800,
+  "ssoSessionMaxLifespan": 86400,
+  "offlineSessionIdleTimeout": 86400,
+  "offlineSessionMaxLifespan": 86400,
   "roles": {
     "realm": [
       {

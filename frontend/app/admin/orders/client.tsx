@@ -103,7 +103,7 @@ export function OrdersClient() {
     <div className="space-y-5">
       <section className="rounded-3xl border border-[var(--color-line)] bg-[var(--color-card)] px-5 py-7 shadow-[0_14px_36px_rgba(18,30,40,0.08)] sm:px-8">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Admin</p>
-        <h1 className="mt-3 font-display text-4xl leading-tight text-slate-900">Pedidos</h1>
+        <h1 className="mt-3 font-display text-4xl leading-tight text-[var(--color-text)]">Pedidos</h1>
         <p className="mt-2 max-w-2xl text-base text-[var(--color-muted)]">
           Gerencie os pedidos dos clientes e atualize o status.
         </p>
@@ -128,7 +128,7 @@ export function OrdersClient() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+                className="w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] text-[var(--color-text)] px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
               >
                 <option value="">Todos os status</option>
                 {ORDER_STATUS_VALUES.map((s) => (
@@ -144,7 +144,7 @@ export function OrdersClient() {
               <select
                 value={paymentStatusFilter}
                 onChange={(e) => setPaymentStatusFilter(e.target.value)}
-                className="w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+                className="w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] text-[var(--color-text)] px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
               >
                 <option value="">Todos os pagamentos</option>
                 {PAYMENT_STATUS_FILTER_VALUES.map((status) => (
@@ -160,7 +160,7 @@ export function OrdersClient() {
               <select
                 value={sourceFilter}
                 onChange={(e) => setSourceFilter(e.target.value)}
-                className="w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+                className="w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] text-[var(--color-text)] px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
               >
                 <option value="">Todas as origens</option>
                 <option value="storefront">Loja</option>
@@ -174,7 +174,7 @@ export function OrdersClient() {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+                className="w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] text-[var(--color-text)] px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
               />
             </label>
 
@@ -184,7 +184,7 @@ export function OrdersClient() {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+                className="w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] text-[var(--color-text)] px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
               />
             </label>
           </div>
@@ -202,7 +202,7 @@ export function OrdersClient() {
               ) : null}
               {sourceFilter ? <OperationalBadge meta={getOrderSourceMeta(sourceFilter)} prefix="Origem" /> : null}
               {(startDate || endDate) ? (
-                <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
+                <span className="rounded-full border border-[var(--color-line)] bg-[var(--color-surface-1)] px-2.5 py-1 text-xs font-medium text-[var(--color-muted)]">
                   Período {startDate || "início"} até {endDate || "hoje"}
                 </span>
               ) : null}
@@ -226,7 +226,7 @@ export function OrdersClient() {
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-card)] p-5">
           <div className="flex items-center justify-between">
-            <h2 className="font-display text-xl text-slate-900">Lista de Pedidos</h2>
+            <h2 className="font-display text-xl text-[var(--color-text)]">Lista de Pedidos</h2>
             <span className="text-sm text-[var(--color-muted)]">{orders.length} na página</span>
           </div>
 
@@ -242,7 +242,7 @@ export function OrdersClient() {
                 <button
                   key={order.id}
                   onClick={() => setSelectedOrder(order)}
-                  className={`w-full rounded-xl border p-4 text-left transition hover:border-slate-400 ${
+                  className={`w-full rounded-xl border p-4 text-left transition hover:border-[var(--color-line-strong)] ${
                     selectedOrder?.id === order.id
                       ? "border-[var(--color-accent)] bg-[var(--color-accent)]/5"
                       : "border-[var(--color-line)]"
@@ -258,7 +258,7 @@ export function OrdersClient() {
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0 space-y-2">
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <p className="text-sm font-semibold text-slate-900">
+                        <p className="text-sm font-semibold text-[var(--color-text)]">
                           Pedido #{order.id.slice(0, 8)}
                         </p>
                         <p className="text-xs text-[var(--color-muted)]">
@@ -271,7 +271,7 @@ export function OrdersClient() {
                       </div>
 
                       <div>
-                        <p className="truncate text-sm font-medium text-slate-900">
+                        <p className="truncate text-sm font-medium text-[var(--color-text)]">
                           {order.customer_name || order.customer_email || "Cliente não identificado"}
                         </p>
                         <p className="truncate text-xs text-[var(--color-muted)]">
@@ -287,11 +287,11 @@ export function OrdersClient() {
                       </div>
                     </div>
 
-                    <div className="shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-right">
+                    <div className="shrink-0 rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)] px-3 py-2 text-right">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
                         Total
                       </p>
-                      <p className="mt-1 text-base font-semibold text-slate-900">{formatCents(order.total_cents)}</p>
+                      <p className="mt-1 text-base font-semibold text-[var(--color-text)]">{formatCents(order.total_cents)}</p>
                     </div>
                   </div>
                     );
@@ -306,7 +306,7 @@ export function OrdersClient() {
               <button
                 onClick={() => handlePageChange(page - 1)}
                 disabled={page === 1}
-                className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm disabled:opacity-50"
+                className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] text-[var(--color-text)] px-3 py-2 text-sm disabled:opacity-50"
               >
                 Anterior
               </button>
@@ -316,7 +316,7 @@ export function OrdersClient() {
               <button
                 onClick={() => handlePageChange(page + 1)}
                 disabled={!hasNextPage}
-                className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm disabled:opacity-50"
+                className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] text-[var(--color-text)] px-3 py-2 text-sm disabled:opacity-50"
               >
                 Próxima
               </button>
@@ -325,7 +325,7 @@ export function OrdersClient() {
         </section>
 
         <section className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-card)] p-5">
-          <h2 className="font-display text-xl text-slate-900">Detalhes do Pedido</h2>
+          <h2 className="font-display text-xl text-[var(--color-text)]">Detalhes do Pedido</h2>
 
           {!selectedOrder ? (
             <p className="mt-4 text-sm text-[var(--color-muted)]">Selecione um pedido para ver os detalhes</p>
@@ -446,7 +446,7 @@ export function OrdersClient() {
                       className={`rounded px-3 py-1.5 text-xs font-medium transition ${
                         selectedOrder.status === s
                           ? "bg-slate-900 text-white"
-                          : "bg-white border border-slate-200 hover:border-slate-400"
+                          : "bg-white border border-slate-200 hover:border-[var(--color-line-strong)]"
                       } disabled:opacity-50`}
                     >
                       {getOrderStatusMeta(s).label}

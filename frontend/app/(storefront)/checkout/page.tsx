@@ -351,7 +351,7 @@ export default function CheckoutPage() {
         />
       ) : null}
 
-      {items.length > 0 && selectedShipping === null && !order ? (
+      {items.length > 0 && selectedShipping === null && !isPickup && !order ? (
         <StatusCallout
           tone="warning"
           title={isRedirectingToCart ? "Voltando ao carrinho" : "Frete obrigatorio antes do checkout"}
@@ -388,7 +388,7 @@ export default function CheckoutPage() {
       ) : null}
 
       <section className="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_360px] lg:items-start">
-        <div className="space-y-6">
+        <div className="order-2 space-y-6 lg:order-1">
           <form onSubmit={handleSubmit} className="space-y-6">
             <PurchaseSectionCard
               eyebrow="Cliente"
@@ -660,7 +660,7 @@ export default function CheckoutPage() {
                 <div className="rounded-[22px] border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4 text-sm text-[var(--color-text-secondary)]">
                   <p>
                     ID da preferencia:{" "}
-                    <span className="font-semibold text-[var(--color-text-primary)]">
+                    <span className="break-all font-semibold text-[var(--color-text-primary)]">
                       {paymentPreference.preference_id}
                     </span>
                   </p>
@@ -697,7 +697,7 @@ export default function CheckoutPage() {
                 <div className="rounded-[22px] border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4 text-sm text-[var(--color-text-secondary)]">
                   <p>
                     ID do pagamento:{" "}
-                    <span className="font-semibold text-[var(--color-text-primary)]">{pixPayment.payment_id}</span>
+                    <span className="break-all font-semibold text-[var(--color-text-primary)]">{pixPayment.payment_id}</span>
                   </p>
                   <p className="mt-1">
                     Status: <span className="font-semibold text-[var(--color-text-primary)]">{pixPayment.status}</span>
@@ -705,7 +705,7 @@ export default function CheckoutPage() {
                   {pixPayment.external_reference ? (
                     <p className="mt-1">
                       Pedido:{" "}
-                      <span className="font-semibold text-[var(--color-text-primary)]">
+                      <span className="break-all font-semibold text-[var(--color-text-primary)]">
                         {pixPayment.external_reference}
                       </span>
                     </p>
@@ -748,7 +748,7 @@ export default function CheckoutPage() {
           ) : null}
         </div>
 
-        <div className="space-y-4 lg:sticky lg:top-24">
+        <div className="order-1 space-y-4 lg:order-2 lg:sticky lg:top-24">
           <PurchaseSummaryCard
             eyebrow="Resumo"
             title="Pedido que sera enviado"

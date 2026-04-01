@@ -9,7 +9,7 @@ export default function StorefrontLayout({
 }>) {
   return (
     <CartProvider>
-      <div className="storefront-theme min-h-screen w-full">
+      <div className="storefront-theme min-h-screen w-full overflow-x-hidden">
         <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-12 sm:px-6 lg:px-8">
           <Header />
           <main className="flex-1 py-8 sm:py-10">{children}</main>

@@ -183,7 +183,7 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false, pendi
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="title" className="block text-sm font-semibold text-slate-700">
+        <label htmlFor="title" className="block text-sm font-semibold text-[var(--color-label)]">
           Título <span className="text-red-500">*</span>
         </label>
         <input
@@ -203,13 +203,13 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false, pendi
             }
           }}
           placeholder="Ex: Camiseta Social Commerce"
-          className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+          className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-input-bg)] text-[var(--color-text)] px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
         />
         {errors.title && <p className="mt-1 text-xs text-red-500">{errors.title}</p>}
       </div>
 
       <div>
-        <label htmlFor="description" className="block text-sm font-semibold text-slate-700">
+        <label htmlFor="description" className="block text-sm font-semibold text-[var(--color-label)]">
           Descrição
         </label>
         <textarea
@@ -218,22 +218,22 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false, pendi
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Descrição opcional do produto"
-          className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+          className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-input-bg)] text-[var(--color-text)] px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
         />
       </div>
 
       <div>
-        <label htmlFor="status" className="block text-sm font-semibold text-slate-700">
+        <label htmlFor="status" className="block text-sm font-semibold text-[var(--color-label)]">
           Status
         </label>
         <select
           id="status"
           value={active ? "active" : "inactive"}
           onChange={(e) => setActive(e.target.value === "active")}
-          className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+          className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-input-bg)] text-[var(--color-text)] px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
         >
-          <option value="active">Ativo</option>
-          <option value="inactive">Inativo</option>
+          <option value="active" className="bg-[var(--color-input-bg)]">Ativo</option>
+          <option value="inactive" className="bg-[var(--color-input-bg)]">Inativo</option>
         </select>
       </div>
 
@@ -248,7 +248,7 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false, pendi
 
       <div className="border-t border-[var(--color-line)] pt-4">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-display text-lg font-semibold text-slate-900">Variações</h3>
+          <h3 className="font-display text-lg font-semibold text-[var(--color-text)]">Variações</h3>
           <button
             type="button"
             onClick={addVariant}
@@ -259,9 +259,9 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false, pendi
         </div>
         
         {variants.map((variant, index) => (
-          <div key={index} className="mb-4 rounded-lg border border-[var(--color-line)] bg-slate-50 p-4">
+          <div key={index} className="mb-4 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2,#f8fafc)] p-4">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Variação {index + 1}</span>
+              <span className="text-xs font-medium text-[var(--color-muted)]">Variação {index + 1}</span>
               {variants.length > 1 && (
                 <button
                   type="button"
@@ -276,7 +276,7 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false, pendi
               <div>
                 <label
                   htmlFor={`variants.${index}.sku`}
-                  className="block text-sm font-semibold text-slate-700"
+                  className="block text-sm font-semibold text-[var(--color-label)]"
                 >
                   SKU <span className="text-red-500">*</span>
                 </label>
@@ -287,7 +287,7 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false, pendi
                   value={variant.sku}
                   onChange={(e) => updateVariant(index, "sku", e.target.value)}
                   placeholder="Ex: TEE-MVP-001"
-                  className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-input-bg)] text-[var(--color-text)] px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
                 />
                 {errors[`variants.${index}.sku`] && (
                   <p className="mt-1 text-xs text-red-500">{errors[`variants.${index}.sku`]}</p>
@@ -297,7 +297,7 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false, pendi
               <div>
                 <label
                   htmlFor={`variants.${index}.priceCents`}
-                  className="block text-sm font-semibold text-slate-700"
+                  className="block text-sm font-semibold text-[var(--color-label)]"
                 >
                   Preço (centavos) <span className="text-red-500">*</span>
                 </label>
@@ -309,7 +309,7 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false, pendi
                   value={variant.priceCents}
                   onChange={(e) => updateVariant(index, "priceCents", e.target.value)}
                   placeholder="Ex: 5900"
-                  className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-input-bg)] text-[var(--color-text)] px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
                 />
                 {errors[`variants.${index}.priceCents`] && (
                   <p className="mt-1 text-xs text-red-500">{errors[`variants.${index}.priceCents`]}</p>
@@ -319,7 +319,7 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false, pendi
               <div>
                 <label
                   htmlFor={`variants.${index}.stock`}
-                  className="block text-sm font-semibold text-slate-700"
+                  className="block text-sm font-semibold text-[var(--color-label)]"
                 >
                   Estoque <span className="text-red-500">*</span>
                 </label>
@@ -331,7 +331,7 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false, pendi
                   value={variant.stock}
                   onChange={(e) => updateVariant(index, "stock", e.target.value)}
                   placeholder="Ex: 10"
-                  className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-input-bg)] text-[var(--color-text)] px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
                 />
                 {errors[`variants.${index}.stock`] && (
                   <p className="mt-1 text-xs text-red-500">{errors[`variants.${index}.stock`]}</p>
@@ -341,7 +341,7 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false, pendi
               <div>
                 <label
                   htmlFor={`variants.${index}.size`}
-                  className="block text-sm font-semibold text-slate-700"
+                  className="block text-sm font-semibold text-[var(--color-label)]"
                 >
                   Tamanho
                 </label>
@@ -351,14 +351,14 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false, pendi
                   value={variant.size}
                   onChange={(e) => updateVariant(index, "size", e.target.value)}
                   placeholder="Ex: M, G, GG"
-                  className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-input-bg)] text-[var(--color-text)] px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
                 />
               </div>
 
               <div>
                 <label
                   htmlFor={`variants.${index}.color`}
-                  className="block text-sm font-semibold text-slate-700"
+                  className="block text-sm font-semibold text-[var(--color-label)]"
                 >
                   Cor
                 </label>
@@ -368,14 +368,14 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false, pendi
                   value={variant.color}
                   onChange={(e) => updateVariant(index, "color", e.target.value)}
                   placeholder="Ex: Branco, Preto, Azul"
-                  className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-input-bg)] text-[var(--color-text)] px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
                 />
               </div>
 
               <div>
                 <label
                   htmlFor={`variants.${index}.weightKg`}
-                  className="block text-sm font-semibold text-slate-700"
+                  className="block text-sm font-semibold text-[var(--color-label)]"
                 >
                   Peso (kg)
                 </label>
@@ -388,14 +388,14 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false, pendi
                   value={variant.weightKg}
                   onChange={(e) => updateVariant(index, "weightKg", e.target.value)}
                   placeholder="Ex: 0.5"
-                  className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-input-bg)] text-[var(--color-text)] px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
                 />
               </div>
 
               <div>
                 <label
                   htmlFor={`variants.${index}.widthCm`}
-                  className="block text-sm font-semibold text-slate-700"
+                  className="block text-sm font-semibold text-[var(--color-label)]"
                 >
                   Largura (cm)
                 </label>
@@ -407,14 +407,14 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false, pendi
                   value={variant.widthCm}
                   onChange={(e) => updateVariant(index, "widthCm", e.target.value)}
                   placeholder="Ex: 20"
-                  className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-input-bg)] text-[var(--color-text)] px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
                 />
               </div>
 
               <div>
                 <label
                   htmlFor={`variants.${index}.heightCm`}
-                  className="block text-sm font-semibold text-slate-700"
+                  className="block text-sm font-semibold text-[var(--color-label)]"
                 >
                   Altura (cm)
                 </label>
@@ -426,14 +426,14 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false, pendi
                   value={variant.heightCm}
                   onChange={(e) => updateVariant(index, "heightCm", e.target.value)}
                   placeholder="Ex: 30"
-                  className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-input-bg)] text-[var(--color-text)] px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
                 />
               </div>
 
               <div>
                 <label
                   htmlFor={`variants.${index}.lengthCm`}
-                  className="block text-sm font-semibold text-slate-700"
+                  className="block text-sm font-semibold text-[var(--color-label)]"
                 >
                   Comprimento (cm)
                 </label>
@@ -445,7 +445,7 @@ export function ProductForm({ initialData, onSubmit, isSubmitting = false, pendi
                   value={variant.lengthCm}
                   onChange={(e) => updateVariant(index, "lengthCm", e.target.value)}
                   placeholder="Ex: 40"
-                  className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-input-bg)] text-[var(--color-text)] px-3 py-2 text-sm transition focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
                 />
               </div>
             </div>

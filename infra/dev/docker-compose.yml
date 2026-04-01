@@ -69,6 +69,10 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       KC_DB: dev-file
+      KC_HOSTNAME_URL: ${OIDC_EXTERNAL_URL:-http://localhost:8080}
+      KC_HOSTNAME_ADMIN_URL: ${OIDC_EXTERNAL_URL:-http://localhost:8080}
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
     ports:
       - "8080:8080"
     volumes:
