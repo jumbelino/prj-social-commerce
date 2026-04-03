@@ -30,6 +30,7 @@ type CheckoutForm = {
   customerName: string;
   customerEmail: string;
   customerPhone: string;
+  customerCpf: string;
 };
 
 type AddressForm = {
@@ -107,6 +108,7 @@ export default function CheckoutPage() {
     customerName: "",
     customerEmail: "",
     customerPhone: "",
+    customerCpf: "",
   });
   const [paymentMethod, setPaymentMethod] = useState<"checkout_pro" | "pix">("pix");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -343,7 +345,7 @@ export default function CheckoutPage() {
             window.location.assign(preferenceResponse.checkout_url);
           }, 150);
         } else {
-          const pixResponse = await createMercadoPagoPayment(createdOrder.id);
+          const pixResponse = await createMercadoPagoPayment(createdOrder.id, form.customerCpf || undefined);
           setPixPayment(pixResponse);
           setSubmissionStage("pix_ready");
         }
@@ -490,6 +492,19 @@ export default function CheckoutPage() {
                       type="tel"
                     />
                   </div>
+                </label>
+
+                <label className="block text-sm font-semibold text-[var(--color-text-primary)]" htmlFor="customerCpf">
+                  CPF <span className="font-normal text-[var(--color-text-secondary)]">(obrigatório para PIX)</span>
+                  <input
+                    id="customerCpf"
+                    className="mt-2 w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-3)] px-4 py-3 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-line-strong)]"
+                    value={form.customerCpf}
+                    onChange={(event) => setForm((current) => ({ ...current, customerCpf: event.target.value }))}
+                    placeholder="000.000.000-00"
+                    inputMode="numeric"
+                    maxLength={14}
+                  />
                 </label>
               </div>
             </PurchaseSectionCard>

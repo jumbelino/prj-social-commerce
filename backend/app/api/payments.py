@@ -249,6 +249,7 @@ def create_mercado_pago_payment(
             order_id=order.id,
             transaction_amount=transaction_amount,
             payer_email=order.customer_email,
+            payer_cpf=payload.payer_cpf,
         )
     except MercadoPagoError as exc:
         raise HTTPException(
