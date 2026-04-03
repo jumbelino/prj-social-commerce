@@ -135,14 +135,14 @@ export default function EditProductPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Editar Produto</h1>
+          <h1 className="text-2xl font-bold text-[var(--color-text)]">Editar Produto</h1>
           <p className="text-sm text-[var(--color-muted)] mt-1">
             Atualize as informacoes do produto e de suas variantes
           </p>
         </div>
         <button
           onClick={() => router.push("/admin/products")}
-          className="text-sm text-[var(--color-muted)] hover:text-slate-700 transition-colors"
+          className="text-sm text-[var(--color-muted)] hover:text-[var(--color-text)] transition-colors"
         >
           Voltar para lista
         </button>

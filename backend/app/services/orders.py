@@ -72,6 +72,12 @@ def create_order_from_payload(
     shipping_delivery_days: int | None = None
     shipping_to_postal_code: str | None = None
     shipping_quote_json: dict[str, object] | None = None
+    shipping_address_street: str | None = None
+    shipping_address_number: str | None = None
+    shipping_address_complement: str | None = None
+    shipping_address_neighborhood: str | None = None
+    shipping_address_city: str | None = None
+    shipping_address_state: str | None = None
 
     if payload.delivery_method == DeliveryMethod.SHIPPING:
         if shipping is None:
@@ -92,8 +98,20 @@ def create_order_from_payload(
         shipping_delivery_days = shipping.delivery_days
         shipping_to_postal_code = shipping.to_postal_code
         shipping_quote_json = shipping.quote_json
+        shipping_address_street = shipping.address_street
+        shipping_address_number = shipping.address_number
+        shipping_address_complement = shipping.address_complement
+        shipping_address_neighborhood = shipping.address_neighborhood
+        shipping_address_city = shipping.address_city
+        shipping_address_state = shipping.address_state
     else:
         shipping_from_postal_code = None
+        shipping_address_street = None
+        shipping_address_number = None
+        shipping_address_complement = None
+        shipping_address_neighborhood = None
+        shipping_address_city = None
+        shipping_address_state = None
 
     order = Order(
         status="pending",
@@ -111,6 +129,12 @@ def create_order_from_payload(
         shipping_delivery_days=shipping_delivery_days,
         shipping_from_postal_code=shipping_from_postal_code,
         shipping_to_postal_code=shipping_to_postal_code,
+        shipping_address_street=shipping_address_street,
+        shipping_address_number=shipping_address_number,
+        shipping_address_complement=shipping_address_complement,
+        shipping_address_neighborhood=shipping_address_neighborhood,
+        shipping_address_city=shipping_address_city,
+        shipping_address_state=shipping_address_state,
         shipping_quote_json=shipping_quote_json,
         total_cents=0,
         expires_at=default_order_expiration(),

@@ -68,15 +68,15 @@ function getStatusLabel(status: string): string {
 
 function getStatusColor(status: string): string {
   const colorMap: Record<string, string> = {
-    pending: "bg-yellow-100 text-yellow-800",
-    paid: "bg-green-100 text-green-800",
-    processing: "bg-blue-100 text-blue-800",
-    shipped: "bg-purple-100 text-purple-800",
-    delivered: "bg-emerald-100 text-emerald-800",
-    cancelled: "bg-red-100 text-red-800",
-    refunded: "bg-gray-100 text-gray-800",
+    pending: "bg-yellow-500/20 text-yellow-300",
+    paid: "bg-green-500/20 text-green-300",
+    processing: "bg-blue-500/20 text-blue-300",
+    shipped: "bg-purple-500/20 text-purple-300",
+    delivered: "bg-emerald-500/20 text-emerald-300",
+    cancelled: "bg-red-500/20 text-red-300",
+    refunded: "bg-[var(--color-surface-2)] text-[var(--color-muted)]",
   };
-  return colorMap[status] || "bg-gray-100 text-gray-800";
+  return colorMap[status] || "bg-[var(--color-surface-2)] text-[var(--color-muted)]";
 }
 
 async function loadCustomer(customerId: string, accessToken: string): Promise<{ customer: CustomerWithOrders | null; error: string | null }> {
@@ -130,44 +130,44 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Cliente: {customer.name || "-"}</h1>
+          <h1 className="text-2xl font-bold text-[var(--color-text)]">Cliente: {customer.name || "-"}</h1>
           <p className="text-sm text-[var(--color-muted)] mt-1">
             Detalhes e historico de pedidos
           </p>
         </div>
         <Link
           href="/admin/customers"
-          className="text-sm text-[var(--color-muted)] hover:text-slate-700 transition-colors"
+          className="text-sm text-[var(--color-muted)] hover:text-[var(--color-text)] transition-colors"
         >
           Voltar para lista
         </Link>
       </div>
 
       <section className="bg-[var(--color-card)] rounded-lg border border-[var(--color-line)] p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-slate-900">Informacoes</h2>
+        <h2 className="text-lg font-semibold text-[var(--color-text)]">Informacoes</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <p className="text-sm text-[var(--color-muted)]">Email</p>
-            <p className="text-slate-900">{customer.email || "-"}</p>
+            <p className="text-[var(--color-text)]">{customer.email || "-"}</p>
           </div>
           <div>
             <p className="text-sm text-[var(--color-muted)]">Telefone</p>
-            <p className="text-slate-900">{formatPhone(customer.phone)}</p>
+            <p className="text-[var(--color-text)]">{formatPhone(customer.phone)}</p>
           </div>
           <div>
             <p className="text-sm text-[var(--color-muted)]">Total de Pedidos</p>
-            <p className="text-slate-900">{customer.total_orders}</p>
+            <p className="text-[var(--color-text)]">{customer.total_orders}</p>
           </div>
           <div>
             <p className="text-sm text-[var(--color-muted)]">Total Gasto</p>
-            <p className="text-slate-900 font-semibold">{formatPrice(totalSpent)}</p>
+            <p className="text-[var(--color-text)] font-semibold">{formatPrice(totalSpent)}</p>
           </div>
         </div>
       </section>
 
       <section className="bg-[var(--color-card)] rounded-lg border border-[var(--color-line)] p-6">
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Historico de Pedidos</h2>
+        <h2 className="text-lg font-semibold text-[var(--color-text)] mb-4">Historico de Pedidos</h2>
         
         {customer.orders && customer.orders.length > 0 ? (
           <div className="space-y-3">
@@ -180,7 +180,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
-                      <span className="font-mono text-sm text-slate-900">#{order.id.slice(0, 8)}</span>
+                      <span className="font-mono text-sm text-[var(--color-text)]">#{order.id.slice(0, 8)}</span>
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
                         {getStatusLabel(order.status)}
                       </span>
@@ -190,7 +190,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-slate-900">{formatPrice(order.total_cents)}</p>
+                    <p className="font-semibold text-[var(--color-text)]">{formatPrice(order.total_cents)}</p>
                     <p className="text-xs text-[var(--color-muted)]">
                       {order.items.length} item(s)
                     </p>

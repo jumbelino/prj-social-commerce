@@ -112,7 +112,7 @@ export function DataTable<T extends Record<string, unknown>>({
             <button
               onClick={() => onPageChange?.(page - 1)}
               disabled={page <= 1}
-              className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-1.5 text-xs font-medium transition hover:border-[var(--color-muted)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] text-[var(--color-text)] px-3 py-1.5 text-xs font-medium transition hover:border-[var(--color-line-strong)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Previous
             </button>
@@ -122,7 +122,7 @@ export function DataTable<T extends Record<string, unknown>>({
             <button
               onClick={() => onPageChange?.(page + 1)}
               disabled={totalPages ? page >= totalPages : !hasNext}
-              className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-1.5 text-xs font-medium transition hover:border-[var(--color-muted)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] text-[var(--color-text)] px-3 py-1.5 text-xs font-medium transition hover:border-[var(--color-line-strong)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Next
             </button>

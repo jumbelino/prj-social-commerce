@@ -71,7 +71,7 @@ export function DashboardClient() {
             <Link
               key={action.href}
               href={action.href}
-              className="flex items-center gap-2 rounded-xl border border-[var(--color-line)] bg-white/80 px-4 py-2.5 text-sm font-medium text-[var(--color-text)] transition hover:border-[var(--color-accent)] hover:bg-white hover:shadow-md"
+              className="flex items-center gap-2 rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)] px-4 py-2.5 text-sm font-medium text-[var(--color-text)] transition hover:border-[var(--color-accent)] hover:bg-[var(--color-surface-2)] hover:shadow-md"
             >
               {action.icon}
               {action.label}

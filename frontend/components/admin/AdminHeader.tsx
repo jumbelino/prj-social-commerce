@@ -38,7 +38,7 @@ export function AdminHeader({ userName, onMenuClick }: AdminHeaderProps) {
         </span>
         <Link
           href="/api/auth/signout?callbackUrl=%2F"
-          className="rounded-lg border border-[var(--color-line)] bg-white/80 px-3 py-1.5 text-sm font-medium text-[var(--color-text)] transition hover:border-slate-400 hover:bg-white"
+          className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-1.5 text-sm font-medium text-[var(--color-text)] transition hover:border-[var(--color-line-strong)] hover:bg-[var(--color-surface-3)]"
         >
           Sign out
         </Link>

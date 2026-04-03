@@ -85,14 +85,14 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
     setSuccessMessage(null);
     try {
       await deleteAdminProduct(productToDelete.id);
-      setDeleteModalOpen(false);
-      setProductToDelete(null);
-      await loadProducts();
       setSuccessMessage("Produto removido. Se houver histórico de venda, ele foi arquivado automaticamente.");
+      await loadProducts();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete product");
     } finally {
       setIsDeleting(false);
+      setDeleteModalOpen(false);
+      setProductToDelete(null);
     }
   };
 
@@ -130,9 +130,9 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
       header: "Status", 
       render: (p) => (
         <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-          p.active 
-            ? "bg-green-100 text-green-800" 
-            : "bg-gray-100 text-gray-800"
+          p.active
+            ? "bg-green-500/20 text-green-300"
+            : "bg-[var(--color-surface-2)] text-[var(--color-muted)]"
         }`}>
           {p.active ? "Ativo" : "Inativo"}
         </span>
@@ -145,7 +145,7 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
         <div className="flex items-center gap-2">
           <button
             onClick={(e) => { e.stopPropagation(); handleEdit(p); }}
-            className="rounded border border-[var(--color-line)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--color-text)] transition hover:border-[var(--color-muted)]"
+            className="rounded border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-1.5 text-xs font-medium text-[var(--color-text)] transition hover:border-[var(--color-line-strong)]"
           >
             Editar
           </button>
@@ -153,8 +153,8 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
             onClick={(e) => { e.stopPropagation(); handleToggleActive(p); }}
             className={`rounded px-3 py-1.5 text-xs font-medium transition ${
               p.active
-                ? "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                : "border border-green-300 bg-green-50 text-green-700 hover:bg-green-100"
+                ? "border border-[var(--color-line)] bg-[var(--color-surface-2)] text-[var(--color-muted)] hover:bg-[var(--color-surface-3)]"
+                : "border border-green-500/30 bg-green-500/10 text-green-300 hover:bg-green-500/20"
             }`}
           >
             {p.active ? "Desativar" : "Ativar"}
@@ -174,7 +174,7 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
     <div className="space-y-5">
       <section className="rounded-3xl border border-[var(--color-line)] bg-[var(--color-card)] px-5 py-7 shadow-[0_14px_36px_rgba(18,30,40,0.08)] sm:px-8">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Admin</p>
-        <h1 className="mt-3 font-display text-4xl leading-tight text-slate-900">Produtos</h1>
+        <h1 className="mt-3 font-display text-4xl leading-tight text-[var(--color-text)]">Produtos</h1>
         <p className="mt-2 max-w-2xl text-base text-[var(--color-muted)]">
           Gerencie seus produtos, variantes e estoque.
         </p>
@@ -182,7 +182,7 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
 
       {error && <ErrorPanel title="Erro" message={error} />}
       {successMessage && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+        <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-300">
           {successMessage}
         </div>
       )}
@@ -192,7 +192,7 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
           <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+            className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)] text-[var(--color-text)] px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
           >
             <option value="">Todos os status</option>
             <option value="active">Ativo</option>
@@ -204,7 +204,7 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
             placeholder="Buscar por título..."
             value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-            className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)] focus:outline-none"
+            className="rounded-lg border border-[var(--color-line)] bg-[var(--color-input-bg)] text-[var(--color-text)] px-3 py-2 text-sm placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)] focus:outline-none"
           />
         </div>
         

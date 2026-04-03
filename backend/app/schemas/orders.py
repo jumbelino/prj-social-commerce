@@ -21,6 +21,13 @@ class OrderShippingSelection(BaseModel):
     from_postal_code: str | None = Field(default=None)
     to_postal_code: str = Field(pattern=r"^\d{8}$")
     quote_json: dict[str, object] | None = Field(default=None)
+    # Endereço completo de entrega
+    address_street: str | None = Field(default=None, max_length=255)
+    address_number: str | None = Field(default=None, max_length=20)
+    address_complement: str | None = Field(default=None, max_length=120)
+    address_neighborhood: str | None = Field(default=None, max_length=120)
+    address_city: str | None = Field(default=None, max_length=120)
+    address_state: str | None = Field(default=None, max_length=2)
 
     @field_validator("from_postal_code")
     @classmethod
@@ -82,6 +89,12 @@ class OrderRead(BaseModel):
     shipping_delivery_days: int | None
     shipping_from_postal_code: str | None
     shipping_to_postal_code: str | None
+    shipping_address_street: str | None
+    shipping_address_number: str | None
+    shipping_address_complement: str | None
+    shipping_address_neighborhood: str | None
+    shipping_address_city: str | None
+    shipping_address_state: str | None
     shipping_quote_json: dict[str, object] | None
     total_cents: int
     expires_at: datetime | None

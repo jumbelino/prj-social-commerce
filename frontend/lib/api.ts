@@ -101,6 +101,12 @@ export type OrderCreatePayload = {
     from_postal_code?: string;
     to_postal_code: string;
     quote_json?: Record<string, unknown> | null;
+    address_street?: string;
+    address_number?: string;
+    address_complement?: string;
+    address_neighborhood?: string;
+    address_city?: string;
+    address_state?: string;
   };
 };
 
@@ -147,6 +153,12 @@ export type OrderRead = {
   shipping_delivery_days: number | null;
   shipping_from_postal_code: string | null;
   shipping_to_postal_code: string | null;
+  shipping_address_street: string | null;
+  shipping_address_number: string | null;
+  shipping_address_complement: string | null;
+  shipping_address_neighborhood: string | null;
+  shipping_address_city: string | null;
+  shipping_address_state: string | null;
   shipping_quote_json: Record<string, unknown> | null;
   total_cents: number;
   expires_at: string | null;
