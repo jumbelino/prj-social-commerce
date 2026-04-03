@@ -33,10 +33,10 @@ test.describe("Checkout Payment Methods", () => {
     await expect(page.getByText("Checkout Pro do Mercado Pago")).toBeVisible();
     await expect(page.getByText("PIX via Mercado Pago")).toBeVisible();
 
-    const checkoutProRadio = page.locator('input[value="checkout_pro"]');
-    await expect(checkoutProRadio).toBeChecked();
+    const pixRadio = page.locator('input[value="pix"]');
+    await expect(pixRadio).toBeChecked();
 
-    await expect(page.getByRole("button", { name: /Criar pedido e ir para o Mercado Pago/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Criar pedido com PIX/i })).toBeVisible();
   });
 
   test("checkout enables PIX payment method selection", async ({ page }) => {
@@ -124,6 +124,8 @@ test.describe("Checkout Payment Methods", () => {
     await page.fill("#customerEmail", "test@example.com");
     await page.fill("#customerPhone", "+551199999999");
 
+    await page.locator('input[value="checkout_pro"]').click();
+    await expect(page.getByRole("button", { name: /Criar pedido e ir para o Mercado Pago/i })).toBeVisible({ timeout: 5000 });
     await page.getByRole("button", { name: /Criar pedido e ir para o Mercado Pago/i }).click();
 
     await page.waitForFunction(() => {
@@ -295,6 +297,8 @@ test.describe("Checkout Payment Methods", () => {
     await page.fill("#customerEmail", "fail@example.com");
     await page.fill("#customerPhone", "+551177777777");
 
+    await page.locator('input[value="checkout_pro"]').click();
+    await expect(page.getByRole("button", { name: /Criar pedido e ir para o Mercado Pago/i })).toBeVisible({ timeout: 5000 });
     await page.getByRole("button", { name: /Criar pedido e ir para o Mercado Pago/i }).click();
 
     await page.waitForTimeout(1500);

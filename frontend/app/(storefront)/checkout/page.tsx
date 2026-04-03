@@ -17,9 +17,11 @@ import {
   ApiRequestError,
   createMercadoPagoPreference,
   createMercadoPagoPayment,
+  syncMercadoPagoPayment,
   createOrder,
   type MercadoPagoPreferenceResponse,
   type MercadoPagoPixPaymentResponse,
+  type MercadoPagoPaymentSyncPayload,
   type OrderRead,
 } from "@/lib/api";
 import { formatCents } from "@/lib/currency";
@@ -106,7 +108,7 @@ export default function CheckoutPage() {
     customerEmail: "",
     customerPhone: "",
   });
-  const [paymentMethod, setPaymentMethod] = useState<"checkout_pro" | "pix">("checkout_pro");
+  const [paymentMethod, setPaymentMethod] = useState<"checkout_pro" | "pix">("pix");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionStage, setSubmissionStage] = useState<SubmissionStage>("idle");
   const [order, setOrder] = useState<OrderRead | null>(null);
@@ -116,6 +118,8 @@ export default function CheckoutPage() {
   const [isRedirectingToCart, setIsRedirectingToCart] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [pollingError, setPollingError] = useState<string | null>(null);
+  const [brcodecopied, setBrcodeCopied] = useState(false);
 
   const isPickup = deliveryMethod === "pickup";
   const [address, setAddress] = useState<AddressForm>({
@@ -164,6 +168,57 @@ export default function CheckoutPage() {
     setIsRedirectingToCart(true);
     router.replace("/cart");
   }, [items.length, isPickup, router, selectedShipping]);
+
+  useEffect(() => {
+    if (!pixPayment || !order) return;
+
+    const terminalStatuses = new Set([
+      "approved", "rejected", "cancelled", "expired", "refunded", "charged_back",
+    ]);
+    if (terminalStatuses.has(pixPayment.status)) return;
+
+    const intervalId = setInterval(() => {
+      const payload: MercadoPagoPaymentSyncPayload = {
+        order_id: order.id,
+        payment_id: pixPayment.payment_id,
+      };
+      void syncMercadoPagoPayment(payload)
+        .then((updatedOrder) => {
+          const status = updatedOrder.latest_payment_status?.trim().toLowerCase() ?? null;
+
+          if (status === "approved" || updatedOrder.status === "paid") {
+            clearInterval(intervalId);
+            router.push(
+              `/checkout/result?order_id=${order.id}&payment_id=${pixPayment.payment_id}&status=approved`,
+            );
+            return;
+          }
+
+          if (
+            updatedOrder.status === "cancelled" ||
+            status === "rejected" ||
+            status === "cancelled" ||
+            status === "expired"
+          ) {
+            clearInterval(intervalId);
+            setPollingError(
+              status === "rejected"
+                ? "Pagamento recusado pelo Mercado Pago. Tente novamente pelo carrinho."
+                : status === "expired"
+                  ? "O prazo do pagamento expirou. O pedido foi cancelado."
+                  : "O pagamento foi cancelado.",
+            );
+          }
+        })
+        .catch(() => {
+          // Erros de rede são silenciosos — o polling continua na próxima tentativa.
+        });
+    }, 5000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [pixPayment, order, router]);
 
   const addressIsValid = useMemo(
     () =>
@@ -552,29 +607,6 @@ export default function CheckoutPage() {
                 <legend className="sr-only">Forma de pagamento</legend>
                 <label
                   className={`flex cursor-pointer items-start gap-3 rounded-[22px] border px-4 py-4 transition ${
-                    paymentMethod === "checkout_pro"
-                      ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)]"
-                      : "border-[var(--color-line)] bg-[var(--color-surface-1)]/88 hover:border-[var(--color-line-strong)]"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="checkout_pro"
-                    checked={paymentMethod === "checkout_pro"}
-                    onChange={() => setPaymentMethod("checkout_pro")}
-                    className="mt-1"
-                  />
-                  <span className="space-y-1">
-                    <span className="block font-semibold text-[var(--color-text-primary)]">Checkout Pro do Mercado Pago</span>
-                    <span className="block text-sm leading-6 text-[var(--color-text-secondary)]">
-                      Ideal para redirecionar o cliente e concluir o pagamento no ambiente do Mercado Pago.
-                    </span>
-                  </span>
-                </label>
-
-                <label
-                  className={`flex cursor-pointer items-start gap-3 rounded-[22px] border px-4 py-4 transition ${
                     paymentMethod === "pix"
                       ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)]"
                       : "border-[var(--color-line)] bg-[var(--color-surface-1)]/88 hover:border-[var(--color-line-strong)]"
@@ -592,6 +624,29 @@ export default function CheckoutPage() {
                     <span className="block font-semibold text-[var(--color-text-primary)]">PIX via Mercado Pago</span>
                     <span className="block text-sm leading-6 text-[var(--color-text-secondary)]">
                       Gera QR Code e codigo copia e cola para o cliente pagar sem sair da jornada da loja.
+                    </span>
+                  </span>
+                </label>
+
+                <label
+                  className={`flex cursor-pointer items-start gap-3 rounded-[22px] border px-4 py-4 transition ${
+                    paymentMethod === "checkout_pro"
+                      ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)]"
+                      : "border-[var(--color-line)] bg-[var(--color-surface-1)]/88 hover:border-[var(--color-line-strong)]"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="checkout_pro"
+                    checked={paymentMethod === "checkout_pro"}
+                    onChange={() => setPaymentMethod("checkout_pro")}
+                    className="mt-1"
+                  />
+                  <span className="space-y-1">
+                    <span className="block font-semibold text-[var(--color-text-primary)]">Checkout Pro do Mercado Pago</span>
+                    <span className="block text-sm leading-6 text-[var(--color-text-secondary)]">
+                      Ideal para redirecionar o cliente e concluir o pagamento no ambiente do Mercado Pago.
                     </span>
                   </span>
                 </label>
@@ -712,9 +767,27 @@ export default function CheckoutPage() {
                   ) : null}
                 </div>
 
+                {pollingError ? (
+                  <StatusCallout tone="danger" title="Pagamento não concluído" message={pollingError} />
+                ) : null}
+
                 {pixPayment.qr_code ? (
                   <div className="rounded-[22px] border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4">
-                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">Codigo copia e cola</p>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-[var(--color-text-primary)]">Codigo copia e cola</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void navigator.clipboard.writeText(pixPayment.qr_code!).then(() => {
+                            setBrcodeCopied(true);
+                            setTimeout(() => setBrcodeCopied(false), 2500);
+                          });
+                        }}
+                        className="shrink-0 rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-1.5 text-xs font-semibold text-[var(--color-text-primary)] transition hover:border-[var(--color-line-strong)] hover:bg-[var(--color-surface-3)]"
+                      >
+                        {brcodecopied ? "Copiado!" : "Copiar codigo"}
+                      </button>
+                    </div>
                     <code className="mt-3 block break-all rounded-2xl bg-[var(--color-surface-3)] p-3 text-xs text-[var(--color-text-secondary)]">
                       {pixPayment.qr_code}
                     </code>
