@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class MercadoPagoPaymentCreateRequest(BaseModel):
     order_id: UUID
+    payer_cpf: str | None = None
 
 
 class MercadoPagoPreferenceCreateRequest(BaseModel):

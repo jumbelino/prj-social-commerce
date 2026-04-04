@@ -108,6 +108,7 @@ class MercadoPagoClient:
         order_id: UUID,
         transaction_amount: float,
         payer_email: str,
+        payer_cpf: str | None = None,
     ) -> Mapping[str, object]:
         if _is_mercado_pago_mock_enabled():
             payment_id = f"mock-pix-{uuid4()}"
@@ -127,11 +128,17 @@ class MercadoPagoClient:
                 },
             }
 
+        payer: dict[str, object] = {"email": payer_email}
+        if payer_cpf:
+            cpf_digits = "".join(c for c in payer_cpf if c.isdigit())
+            if cpf_digits:
+                payer["identification"] = {"type": "CPF", "number": cpf_digits}
+
         payload = {
             "transaction_amount": transaction_amount,
             "payment_method_id": "pix",
             "external_reference": str(order_id),
-            "payer": {"email": payer_email},
+            "payer": payer,
         }
         headers = {
             "Authorization": f"Bearer {self._access_token}",

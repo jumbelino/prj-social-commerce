@@ -297,10 +297,10 @@ export function getShippingQuotes(payload: ShippingQuoteRequest): Promise<Shippi
   })
 }
 
-export function createMercadoPagoPayment(orderId: string): Promise<MercadoPagoPixPaymentResponse> {
+export function createMercadoPagoPayment(orderId: string, payerCpf?: string): Promise<MercadoPagoPixPaymentResponse> {
   return requestJson<MercadoPagoPixPaymentResponse>("/payments/mercado-pago", {
     method: "POST",
-    body: JSON.stringify({ order_id: orderId }),
+    body: JSON.stringify({ order_id: orderId, ...(payerCpf ? { payer_cpf: payerCpf } : {}) }),
   })
 }
 
