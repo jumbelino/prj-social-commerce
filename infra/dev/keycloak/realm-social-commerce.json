@@ -29,11 +29,13 @@
       "serviceAccountsEnabled": false,
       "redirectUris": [
         "http://localhost:3000/*",
-        "http://192.168.0.234:3000/*"
+        "http://192.168.0.234:3000/*",
+        "http://100.65.1.38:3000/*"
       ],
       "webOrigins": [
         "http://localhost:3000",
-        "http://192.168.0.234:3000"
+        "http://192.168.0.234:3000",
+        "http://100.65.1.38:3000"
       ]
     }
   ],

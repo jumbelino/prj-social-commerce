@@ -202,12 +202,14 @@ class MercadoPagoClient:
         payload = {
             "external_reference": external_reference,
             "items": normalized_items,
-            "auto_return": "approved",
         }
         if payer_email is not None and payer_email.strip() != "":
             payload["payer"] = {"email": payer_email.strip()}
         if back_urls:
             payload["back_urls"] = dict(back_urls)
+            success_url = back_urls.get("success", "")
+            if success_url and "localhost" not in success_url and "127.0.0.1" not in success_url:
+                payload["auto_return"] = "approved"
         if notification_url is not None and notification_url.strip() != "":
             payload["notification_url"] = notification_url.strip()
         headers = {
