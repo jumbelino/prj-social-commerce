@@ -1,0 +1,64 @@
+{
+  "realm": "social-commerce",
+  "enabled": true,
+  "displayName": "Canoa - Social Commerce",
+  "accessTokenLifespan": 28800,
+  "ssoSessionIdleTimeout": 28800,
+  "ssoSessionMaxLifespan": 86400,
+  "offlineSessionIdleTimeout": 86400,
+  "offlineSessionMaxLifespan": 86400,
+  "roles": {
+    "realm": [
+      {
+        "name": "admin",
+        "description": "Admin role"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "social-commerce-frontend",
+      "name": "Social Commerce Frontend",
+      "description": "Public client for NextAuth",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "https://canoa.aurea.works/*"
+      ],
+      "webOrigins": [
+        "https://canoa.aurea.works"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "firstName": "Admin",
+      "lastName": "Aurea",
+      "email": "admin@aurea.works",
+      "emailVerified": true,
+      "requiredActions": [],
+      "clientRoles": {
+        "realm-management": [
+          "realm-admin"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${ADMIN_INITIAL_PASSWORD}",
+          "temporary": true
+        }
+      ],
+      "realmRoles": [
+        "admin"
+      ]
+    }
+  ]
+}
