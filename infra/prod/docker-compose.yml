@@ -1,0 +1,157 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: prod-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-social_commerce}
+      POSTGRES_USER: ${POSTGRES_USER:-social_commerce}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-social_commerce}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: prod-redis
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: prod-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: prod-minio-init
+    restart: "no"
+    entrypoint: ["/bin/sh", "/bootstrap/bootstrap-public-bucket.sh"]
+    environment:
+      MINIO_BUCKET: ${MINIO_BUCKET:-product-images}
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    volumes:
+      - ./minio/bootstrap-public-bucket.sh:/bootstrap/bootstrap-public-bucket.sh:ro
+    depends_on:
+      minio:
+        condition: service_healthy
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: prod-keycloak
+    restart: unless-stopped
+    command: start --import-realm
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: ${POSTGRES_USER:-social_commerce}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KC_HOSTNAME: ${DOMAIN}
+      KC_HOSTNAME_URL: https://${DOMAIN}/auth
+      KC_HOSTNAME_ADMIN_URL: https://${DOMAIN}/auth
+      KC_HTTP_RELATIVE_PATH: /auth
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backend:
+    build:
+      context: ../../backend
+    container_name: prod-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-social_commerce}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-social_commerce}
+      OIDC_JWKS_URL: http://keycloak:8080/auth/realms/social-commerce/protocol/openid-connect/certs
+      OIDC_ISSUER: https://${DOMAIN}/auth/realms/social-commerce
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-realm-management}
+      FRONTEND_ORIGIN: https://${DOMAIN}
+      CHECKOUT_RESULT_REDIRECT_BASE_URL: https://${DOMAIN}/checkout/result
+      MERCADO_PAGO_MOCK: ${MERCADO_PAGO_MOCK:-0}
+      MERCADO_PAGO_CHECKOUT_MODE: ${MERCADO_PAGO_CHECKOUT_MODE:-sandbox}
+      MERCADO_PAGO_ACCESS_TOKEN: ${MERCADO_PAGO_ACCESS_TOKEN}
+      MERCADO_PAGO_NOTIFICATION_URL: https://${DOMAIN}/backend/webhooks/mercado-pago
+      MERCADO_PAGO_WEBHOOK_SECRET: ${MERCADO_PAGO_WEBHOOK_SECRET}
+      MELHOR_ENVIO_BASE_URL: ${MELHOR_ENVIO_BASE_URL:-https://sandbox.melhorenvio.com.br}
+      MELHOR_ENVIO_TOKEN: ${MELHOR_ENVIO_TOKEN}
+      SHIPPING_ORIGIN_POSTAL_CODE: ${SHIPPING_ORIGIN_POSTAL_CODE}
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET: ${MINIO_BUCKET:-product-images}
+      MINIO_PUBLIC_BASE_URL: https://${DOMAIN}/storage/product-images
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ../../frontend
+      args:
+        NEXT_PUBLIC_OIDC_AUTHORITY: https://${DOMAIN}/auth/realms/social-commerce
+        NEXT_PUBLIC_OIDC_CLIENT_ID: ${NEXT_PUBLIC_OIDC_CLIENT_ID:-social-commerce-frontend}
+        NEXT_PUBLIC_API_BASE_URL: https://${DOMAIN}/backend
+        NEXT_PUBLIC_APP_BASE_URL: https://${DOMAIN}
+        INTERNAL_API_BASE_URL: http://backend:8000
+    container_name: prod-frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: https://${DOMAIN}/backend
+      NEXT_PUBLIC_APP_BASE_URL: https://${DOMAIN}
+      INTERNAL_API_BASE_URL: http://backend:8000
+      NEXT_PUBLIC_OIDC_AUTHORITY: https://${DOMAIN}/auth/realms/social-commerce
+      OIDC_INTERNAL_AUTHORITY: http://keycloak:8080/auth/realms/social-commerce
+      NEXT_PUBLIC_OIDC_CLIENT_ID: ${NEXT_PUBLIC_OIDC_CLIENT_ID:-social-commerce-frontend}
+      NEXTAUTH_URL: https://${DOMAIN}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+    depends_on:
+      backend:
+        condition: service_started
+      keycloak:
+        condition: service_started
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: prod-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - frontend
+      - backend
+      - keycloak
+
+volumes:
+  postgres_data:
+  minio_data:
